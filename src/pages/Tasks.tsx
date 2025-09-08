@@ -17,7 +17,6 @@ export default function Tasks() {
   const {
     tasks = [],
     isLoading,
-    error,
     setTasks,
     addTask,
     updateTask,
@@ -29,7 +28,6 @@ export default function Tasks() {
   } = useTaskStore();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');
@@ -220,7 +218,7 @@ export default function Tasks() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            Gerenciamento de Tarefas
+           Tarefas
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Organize e acompanhe suas tarefas de TI
@@ -355,7 +353,7 @@ export default function Tasks() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEditingTask(task)}
+                      onClick={() => console.log('Edit task:', task.id)}
                     >
                       <Edit3 className="h-4 w-4" />
                     </Button>

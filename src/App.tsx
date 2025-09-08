@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useNavigationStore } from './store/navigation';
 import { ThemeProvider } from './contexts/theme';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { LoadingSpinner } from './components/LoadingSpinner';
 import Dashboard from './pages/Dashboard';
 import Devices from './pages/Devices';
 import Printers from './pages/Printers';
@@ -14,6 +12,7 @@ import Print from './pages/sheet';
 import { InstallPWA } from './components/InstallPWA';
 import { Toaster } from './components/ui/toaster';
 import Layout from './components/Layout';
+import SwitchRackManager from './pages/SwitchRackManager';
 
 function App() {
   const currentPage = useNavigationStore((state) => state.currentPage);
@@ -26,6 +25,7 @@ function App() {
     case 'routers': PageComponent = Routers; break;
     case 'boxes': PageComponent = Boxes; break;
     case 'tasks': PageComponent = Tasks; break;
+    case 'switches': PageComponent = SwitchRackManager; break;
     case 'settings': PageComponent = Settings; break;
     case 'sheet': PageComponent = Print; break;
     default: PageComponent = Dashboard;

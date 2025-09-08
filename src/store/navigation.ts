@@ -8,6 +8,7 @@ export type Page =
   | 'boxes'
   | 'tasks'
   | 'settings'
+  | 'switches'
   | 'sheet';
 
 interface NavigationState {

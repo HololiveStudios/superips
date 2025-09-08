@@ -215,32 +215,42 @@ export default function Routers() {
           }`}
         >
           <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-sm" onClick={closeQrCodeModal} />
-          <div className="relative bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl max-w-sm w-full mx-4">
-            <div className="text-center mb-4">
-              <h2 className="text-lg font-semibold mb-2">Aponte a câmera do celular</h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="relative bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-auto">
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-semibold mb-3">Aponte a câmera do celular</h2>
+              <p className="text-base text-gray-600 dark:text-gray-400">
                 Escaneie o QR code para conectar ao Wi-Fi
               </p>
             </div>
             
-            <div className="flex justify-center mb-4">
-              <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-2xl">
+            <div className="flex justify-center mb-6">
+              <div className="p-6 bg-white dark:bg-white rounded-3xl shadow-inner">
                 <QRCode
                   value={`WIFI:S:${qrCodeData.ssid};T:WPA;P:${qrCodeData.password};H:${qrCodeData.hidden};;`}
-                  size={200}
-                  logoImage="/logo.png"
-                  logoWidth={50}
-                  removeQrCodeBehindLogo={true}
-                  qrStyle="dots"
+                  size={320}
+                  logoWidth={0}
+                  removeQrCodeBehindLogo={false}
+                  qrStyle="squares"
+                  eyeRadius={10}
                   fgColor="#000000"
                   bgColor="#ffffff"
+                  ecLevel="L"
+                  quietZone={20}
                 />
               </div>
             </div>
             
+            <div className="text-center mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Informações da Rede:</p>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{qrCodeData.ssid}</p>
+              {qrCodeData.hidden && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1 font-medium">Rede oculta</p>
+              )}
+            </div>
+            
             <button
               onClick={closeQrCodeModal}
-              className="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium
+              className="w-full inline-flex items-center justify-center px-6 py-3 text-base font-medium
                 text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors duration-200
                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >

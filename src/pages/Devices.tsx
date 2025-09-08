@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useDevicesStore } from '../store/devices';
 import { 
   Activity, Power, Search, ChevronDown, ChevronUp, 
-  ArrowRight, ArrowLeft, Edit2, X, Save, Loader2 
+  ArrowRight, ArrowLeft, Edit2,Loader2 
 } from 'lucide-react';
 import type { Device } from '../types';
 import { apiService } from '../services/api';
@@ -10,158 +10,297 @@ import { apiService } from '../services/api';
 interface EditModalProps {
   device: Device;
   onClose: () => void;
-  onSave: (updatedDevice: Device) => Promise<void>;
+  onSave: (updatedDevice: Device) => Promise<void> | void;
+  types?: string[];
+  sectors?: string[];
 }
 
-const EditModal = ({ device, onClose, onSave }: EditModalProps) => {
-  const [formData, setFormData] = useState<Device>({ ...device });
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+const EditModal: React.FC<EditModalProps> = ({ device, onClose, onSave, types = [], sectors = [] }) => {
+  const [formData, setFormData] = useState({
+    ip: "",
+    name: "",
+    type: "",
+    newType: "",
+    user: "",
+    sector: "",
+    newSector: "",
+    login_username: "",
+    login_password: "",
+    wifi_ssid: "",
+    wifi_password: "",
+    hidden: "",
+    model: "",
+    li: "",
+    lf: "",
+    npat: ""
+  });
+
+
+  const [isNewType, setIsNewType] = useState(false);
+  const [isNewSector, setIsNewSector] = useState(false);
+
+  useEffect(() => {
+    if (device) {
+      setFormData({
+        ip: device.ip || "",
+        name: device.name || "",
+        type: device.type || "",
+        newType: "",
+        user: device.user || "",
+        sector: device.sector || "",
+        newSector: "",
+        login_username: device.login_username || "",
+        login_password: device.login_password || "",
+        wifi_ssid: device.wifi_ssid || "",
+        wifi_password: device.wifi_password || "",
+        hidden: device.hidden || "",
+        model: device.model || "",
+        li: device.li || "",
+        lf: device.lf || "",
+        npat: device.npat || ""
+      });
+    }
+  }, [device]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setErrorMessage('');
-    
-    try {
-      await onSave(formData);
-      onClose();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Falha ao salvar dispositivo');
-    } finally {
-      setIsSaving(false);
-    }
+  const handleSave = () => {
+    const finalData: Device = {
+      ...device,
+      ...formData,
+      type: isNewType ? formData.newType : formData.type,
+      sector: isNewSector ? formData.newSector : formData.sector
+    };
+    onSave(finalData);
+    onClose();
   };
 
+  const isRouter = formData.type === "Roteador";
+  const isPrinter = formData.type === "Impressora";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl dark:shadow-gray-500/30 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            Editar Dispositivo
-          </h3>
+    <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-50">
+      <div className="bg-gray-900 text-gray-100 rounded-2xl p-6 w-full max-w-lg shadow-xl">
+        <h2 className="text-xl font-semibold mb-4">Editar Dispositivo</h2>
+
+        {/* IP (somente leitura) */}
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Endereço IP</label>
+          <input
+            type="text"
+            name="ip"
+            value={formData.ip}
+            readOnly
+            className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-400 cursor-not-allowed"
+          />
+        </div>
+
+        {/* Nome */}
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Nome</label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+          />
+        </div>
+
+        {/* Tipo */}
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Tipo</label>
+          {!isNewType ? (
+            <select
+              name="type"
+              value={formData.type}
+              onChange={e => {
+                if (e.target.value === "__new") {
+                  setIsNewType(true);
+                } else {
+                  handleChange(e);
+                }
+              }}
+              className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+            >
+              <option value="">Selecione</option>
+              {types.map((t, i) => (
+                <option key={i} value={t}>
+                  {t}
+                </option>
+              ))}
+              <option value="__new">+ Adicionar novo tipo</option>
+            </select>
+          ) : (
+            <input
+              type="text"
+              name="newType"
+              value={formData.newType}
+              onChange={handleChange}
+              placeholder="Novo tipo"
+              className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+            />
+          )}
+        </div>
+
+        {/* Usuário */}
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Usuário</label>
+          <input
+            type="text"
+            name="user"
+            value={formData.user}
+            onChange={handleChange}
+            className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+          />
+        </div>
+
+        {/* Setor */}
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Setor</label>
+          {!isNewSector ? (
+            <select
+              name="sector"
+              value={formData.sector}
+              onChange={e => {
+                if (e.target.value === "__new") {
+                  setIsNewSector(true);
+                } else {
+                  handleChange(e);
+                }
+              }}
+              className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+            >
+              <option value="">Selecione</option>
+              {sectors.map((s, i) => (
+                <option key={i} value={s}>
+                  {s}
+                </option>
+              ))}
+              <option value="__new">+ Adicionar novo setor</option>
+            </select>
+          ) : (
+            <input
+              type="text"
+              name="newSector"
+              value={formData.newSector}
+              onChange={handleChange}
+              placeholder="Novo setor"
+              className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+            />
+          )}
+
+        </div>
+
+        {/* Campos condicionais */}
+        {isRouter && (
+          <>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Login Usuário</label>
+              <input
+                type="text"
+                name="login_username"
+                value={formData.login_username}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Login Senha</label>
+              <input
+                type="password"
+                name="login_password"
+                value={formData.login_password}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Wi-Fi SSID</label>
+              <input
+                type="text"
+                name="wifi_ssid"
+                value={formData.wifi_ssid}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Wi-Fi Senha</label>
+              <input
+                type="password"
+                name="wifi_password"
+                value={formData.wifi_password}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+          </>
+        )}
+
+        {isPrinter && (
+          <>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">Modelo</label>
+              <input
+                type="text"
+                name="model"
+                value={formData.model}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">LI</label>
+              <input
+                type="text"
+                name="li"
+                value={formData.li}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">LF</label>
+              <input
+                type="text"
+                name="lf"
+                value={formData.lf}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block text-sm mb-1">NPAT</label>
+              <input
+                type="text"
+                name="npat"
+                value={formData.npat}
+                onChange={handleChange}
+                className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
+              />
+            </div>
+          </>
+        )}
+
+        {/* Botões */}
+        <div className="flex justify-end gap-3 mt-5">
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none"
+            className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600"
           >
-            <X className="h-5 w-5" />
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500"
+          >
+            Salvar
           </button>
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-4">
-          {errorMessage && (
-            <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded-2xl">
-              {errorMessage}
-            </div>
-          )}
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                IP
-              </label>
-              <input
-                type="text"
-                name="ip"
-                value={formData.ip}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Nome
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tipo
-              </label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-                required
-              >
-                <option value="Computador">Computador</option>
-                <option value="Impressora">Impressora</option>
-                <option value="Roteador">Roteador</option>
-                <option value="Balança">Balança</option>
-                <option value="Busca Preço">Busca Preço</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Usuário
-              </label>
-              <input
-                type="text"
-                name="user"
-                value={formData.user}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Setor
-              </label>
-              <input
-                type="text"
-                name="sector"
-                value={formData.sector}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-          </div>
-          
-          <div className="mt-6 flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl shadow-sm dark:shadow-gray-500/30 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-2xl shadow-sm dark:shadow-gray-500/30 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 flex items-center"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Salvar
-                </>
-              )}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );
@@ -180,6 +319,8 @@ export default function Devices() {
   const [currentNetwork, setCurrentNetwork] = useState<'10.0' | '10.2' | '10.4'>('10.0');
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [expandedDeviceId, setExpandedDeviceId] = useState<number | null>(null);
+  const types = Array.from(new Set(devices.map(d => d.type).filter(Boolean)));
+  const sectors = Array.from(new Set(devices.map(d => d.sector).filter(Boolean)));
 
   const getDevicesByNetwork = (network: '10.0' | '10.2' | '10.4'): Device[] => {
     return devices.filter(device => device.ip.startsWith(network));
@@ -320,6 +461,18 @@ export default function Devices() {
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
           Dispositivos
         </h1>
+        <div className="relative w-full md:w-96 mt-4 md:mt-0">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+          placeholder="Buscar dispositivos..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
+        />
+      </div>
         <div className="mt-4 md:mt-0 flex items-center space-x-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">
             Subrede: {currentNetwork}.x
@@ -341,18 +494,7 @@ export default function Devices() {
         </div>
       </div>
 
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          placeholder="Buscar dispositivos..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
-        />
-      </div>
+
 
       {filteredDevices.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-500/30 p-8 text-center">
@@ -487,13 +629,16 @@ export default function Devices() {
         </div>
       )}
 
-      {editingDevice && (
-        <EditModal
-          device={editingDevice}
-          onClose={() => setEditingDevice(null)}
-          onSave={handleSaveDevice}
-        />
-      )}
+{editingDevice && (
+  <EditModal
+    device={editingDevice}
+    onClose={() => setEditingDevice(null)}
+    onSave={handleSaveDevice}
+    types={types}
+    sectors={sectors}
+  />
+)}
+
     </div>
   );
 }

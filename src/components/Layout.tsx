@@ -1,24 +1,13 @@
 import { useState } from 'react'
 import { 
-  Menu, X, LayoutGrid, Router, Printer, Box, Moon, Sun, CheckSquare, Settings, Home
+  Menu, X, LayoutGrid, Router, Printer, Box, Moon, Sun, CheckSquare, Settings, Home, Network
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import { useTheme } from '../contexts/theme'
 import { HeaderDropdowns } from './PopUp'
 import { useNavigationStore, Page } from '../store/navigation'
-
-// Types
-interface NavigationItem {
-  name: string
-  href: Page
-  icon: React.ComponentType<any>
-}
-
-interface NavLinkProps {
-  item: NavigationItem
-  mobile?: boolean
-  onClick?: () => void
-}
+import React from 'react'
+import {NavigationItem, NavLinkProps} from '../types'
 
 // Constants
 const NAVIGATION_ITEMS: NavigationItem[] = [
@@ -26,11 +15,11 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   { name: 'Dispositivos', href: 'devices', icon: LayoutGrid },
   { name: 'Roteadores', href: 'routers', icon: Router },
   { name: 'Impressoras', href: 'printers', icon: Printer },
-  { name: 'Caixas', href: 'boxes', icon: Box },
   { name: 'Tarefas', href: 'tasks', icon: CheckSquare },
+  { name: 'Caixas', href: 'boxes', icon: Box },
+  { name: 'Switches', href: 'switches', icon: Network }, // ✅ Mudança aqui
   { name: 'Configurações', href: 'settings', icon: Settings },
 ]
-
 // Components
 const Logo = () => (
   <div className="flex items-center">
