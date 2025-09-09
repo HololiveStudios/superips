@@ -93,23 +93,30 @@ const Dashboard = () => {
     loadData();
   };
 
-  const getDeviceStats = (): Record<string, DeviceStats> => {
-    const stats = data.devices.reduce((acc: Record<string, DeviceStats>, device) => {
-      const type = device.type;
-      if (!acc[type]) {
-        acc[type] = { total: 0, online: 0, offline: 0 };
-      }
-      acc[type].total++;
-      if (device.status === 1) {
-        acc[type].online++;
-      } else {
-        acc[type].offline++;
-      }
-      return acc;
-    }, {});
+const getDeviceStats = (): Record<string, DeviceStats> => {
+  const stats = data.devices.reduce((acc: Record<string, DeviceStats>, device) => {
+    const type = device.type?.trim();
 
-    return stats;
-  };
+    // ignora vazio, null ou undefined
+    if (!type) return acc;
+
+    if (!acc[type]) {
+      acc[type] = { total: 0, online: 0, offline: 0 };
+    }
+
+    acc[type].total++;
+    if (device.status === 1) {
+      acc[type].online++;
+    } else {
+      acc[type].offline++;
+    }
+
+    return acc;
+  }, {});
+
+  return stats;
+};
+
 
   const getTotalStats = (): DeviceStats => {
     const total = data.devices.length;
@@ -118,29 +125,46 @@ const Dashboard = () => {
     return { total, online, offline };
   };
 
-  const getNotifications = (): Notification[] => {
-    const offline = data.devices.filter(d => d.status === 0);
-    const notifications: Notification[] = [];
+const isValidField = (value: any) => {
+  return value !== null &&
+         value !== undefined &&
+         String(value).trim() !== '' &&
+         String(value).toLowerCase() !== 'desconhecido';
+};
 
-    if (offline.length > 0) {
-      notifications.push({
-        type: 'warning',
-        message: `${offline.length} dispositivo(s) offline`,
-        devices: offline
-      });
-    }
+const getNotifications = (): Notification[] => {
+  const notifications: Notification[] = [];
 
-    const criticalDevices = offline.filter(d => d.type === 'Roteador');
-    if (criticalDevices.length > 0) {
-      notifications.push({
-        type: 'critical',
-        message: `Roteador offline detectado`,
-        devices: criticalDevices
-      });
-    }
+  const validDevices = data.devices.filter(d => {
+    // Sempre incluir se o tipo for Desconhecido
+    if (d.type?.toLowerCase() === 'Desconhecido') return true;
 
-    return notifications;
-  };
+    // Caso contrário, só se tiver status offline e campos válidos
+    return d.status === 0 &&
+           isValidField(d.type) &&
+           isValidField(d.name) &&
+           isValidField(d.sector);
+  });
+
+  if (validDevices.length > 0) {
+    notifications.push({
+      type: 'warning',
+      message: `${validDevices.length} dispositivo(s) offline`,
+      devices: validDevices
+    });
+  }
+
+  const criticalDevices = validDevices.filter(d => d.type?.toLowerCase() === 'roteador');
+  if (criticalDevices.length > 0) {
+    notifications.push({
+      type: 'critical',
+      message: `Roteador offline detectado`,
+      devices: criticalDevices
+    });
+  }
+
+  return notifications;
+};
 
   const getTypeIcon = (type: string) => {
     switch (type) {

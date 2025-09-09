@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Network, Server, Plus, Trash2, Power, Check, X, Settings, AlertCircle } from 'lucide-react';
+import { Network, Server, Plus, Trash2, Power, Check, X, Settings, AlertCircle, Download, Edit } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { apiService } from '../services/api';
 
 interface Switch {
@@ -12,7 +13,7 @@ interface Switch {
   used_ports: number;
   is_poe: boolean;
   status: 'active' | 'inactive';
-  ip_address?: string; // Made optional to match API response
+  ip_address?: string;
   ports_status?: boolean[];
   created_at?: string;
 }
@@ -32,6 +33,7 @@ export default function SwitchRackManager() {
   const [racks, setRacks] = useState<Rack[]>([]);
   const [activeTab, setActiveTab] = useState<'switches' | 'racks'>('switches');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState<{ type: 'switch' | 'rack', item: Switch | Rack } | null>(null);
   const [showPortsModal, setShowPortsModal] = useState<Switch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +60,11 @@ export default function SwitchRackManager() {
     status: 'active'
   });
 
+  const [editSwitch, setEditSwitch] = useState<Partial<Switch>>({});
+  const [editRack, setEditRack] = useState<Partial<Rack>>({});
+
   const sectors = ['TI', 'Administrativo', 'Produção', 'Vendas', 'Financeiro', 'RH', 'Marketing'];
 
-  // Carregar dados da API
   useEffect(() => {
     loadData();
   }, [activeTab]);
@@ -72,10 +76,9 @@ export default function SwitchRackManager() {
       
       if (activeTab === 'switches') {
         const switchData = await apiService.getSwitches();
-        // Garantir que ports_status existe e tratar ip_address opcional
         const switchesWithPorts = switchData.map(sw => ({
           ...sw,
-          ip_address: sw.ip_address || '', // Provide default empty string if undefined
+          ip_address: sw.ip_address || '',
           ports_status: sw.ports_status || Array(sw.total_ports).fill(false).map((_, i) => i < sw.used_ports)
         }));
         setSwitches(switchesWithPorts);
@@ -91,24 +94,53 @@ export default function SwitchRackManager() {
     }
   };
 
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    
+    if (activeTab === 'switches') {
+      const switchData = switches.map(sw => ({
+        'Modelo': sw.model,
+        'Setor': sw.sector
+      }));
+      
+      const ws = XLSX.utils.json_to_sheet(switchData);
+      XLSX.utils.book_append_sheet(wb, ws, "Switches");
+    } else {
+      const rackData = racks.map(rack => ({
+        'Nome': rack.name,
+        'Setor': rack.sector,
+        'Localização': rack.location,
+        'Unidades Total': rack.total_units + 'U',
+        'Unidades Usadas': rack.used_units + 'U',
+        'Utilização (%)': Math.round((rack.used_units / rack.total_units) * 100),
+        'Status': rack.status === 'active' ? 'Ativo' : 'Inativo'
+      }));
+      
+      const ws = XLSX.utils.json_to_sheet(rackData);
+      XLSX.utils.book_append_sheet(wb, ws, "Racks");
+    }
+    
+    const fileName = `${activeTab}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   const addSwitch = async () => {
     if (newSwitch.name && newSwitch.model && newSwitch.sector) {
       try {
         setError(null);
         const switchToAdd = {
           ...newSwitch,
-          ip_address: newSwitch.ip_address || '', // Ensure ip_address is always a string
+          ip_address: newSwitch.ip_address || '',
           ports_status: Array(newSwitch.total_ports || 24).fill(false)
         };
         
         const createdSwitch = await apiService.createSwitch(switchToAdd);
         setSwitches([...switches, { 
           ...createdSwitch,
-          ip_address: createdSwitch.ip_address || '', // Ensure consistency
+          ip_address: createdSwitch.ip_address || '',
           ports_status: Array(createdSwitch.total_ports).fill(false).map((_, i) => i < createdSwitch.used_ports)
         }]);
         
-        // Reset form
         setNewSwitch({ 
           name: '', 
           model: '', 
@@ -136,7 +168,6 @@ export default function SwitchRackManager() {
         const createdRack = await apiService.createRack(newRack);
         setRacks([...racks, createdRack]);
         
-        // Reset form
         setNewRack({ 
           name: '', 
           sector: '', 
@@ -151,6 +182,61 @@ export default function SwitchRackManager() {
         setError('Erro ao criar rack. Verifique os dados e tente novamente.');
       }
     }
+  };
+
+  const updateSwitch = async () => {
+    if (editSwitch.name && editSwitch.model && editSwitch.sector && editSwitch.id) {
+      try {
+        setError(null);
+        const switchToUpdate = {
+          ...editSwitch,
+          ip_address: editSwitch.ip_address || '',
+          ports_status: editSwitch.ports_status || Array(editSwitch.total_ports || 24).fill(false)
+        };
+        
+        const updatedSwitch = await apiService.updateSwitch(editSwitch.id, switchToUpdate);
+        setSwitches(switches.map(sw => sw.id === editSwitch.id ? { 
+          ...updatedSwitch,
+          ip_address: updatedSwitch.ip_address || '',
+          ports_status: updatedSwitch.ports_status || Array(updatedSwitch.total_ports).fill(false).map((_, i) => i < updatedSwitch.used_ports)
+        } : sw));
+        
+        setShowEditForm(null);
+        setEditSwitch({});
+      } catch (err) {
+        console.error('Erro ao atualizar switch:', err);
+        setError('Erro ao atualizar switch. Verifique os dados e tente novamente.');
+      }
+    }
+  };
+
+  const updateRack = async () => {
+    if (editRack.name && editRack.sector && editRack.location && editRack.id) {
+      try {
+        setError(null);
+        const updatedRack = await apiService.updateRack(editRack.id, editRack);
+        setRacks(racks.map(rack => rack.id === editRack.id ? updatedRack : rack));
+        
+        setShowEditForm(null);
+        setEditRack({});
+      } catch (err) {
+        console.error('Erro ao atualizar rack:', err);
+        setError('Erro ao atualizar rack. Verifique os dados e tente novamente.');
+      }
+    }
+  };
+
+  const openEditForm = (type: 'switch' | 'rack', item: Switch | Rack) => {
+    if (type === 'switch') {
+      const switchItem = item as Switch;
+      setEditSwitch({
+        ...switchItem,
+        ports_status: switchItem.ports_status || Array(switchItem.total_ports).fill(false)
+      });
+    } else {
+      setEditRack(item as Rack);
+    }
+    setShowEditForm({ type, item });
   };
 
   const deleteSwitch = async (id: number) => {
@@ -188,13 +274,11 @@ export default function SwitchRackManager() {
     const used_ports = newPortsStatus.filter(Boolean).length;
 
     try {
-      // Atualizar no backend
       await apiService.updateSwitch(switchId, { 
         used_ports,
         ports_status: newPortsStatus 
       });
 
-      // Atualizar no estado local
       setSwitches(switches.map(s => {
         if (s.id === switchId) {
           return { ...s, ports_status: newPortsStatus, used_ports };
@@ -202,7 +286,6 @@ export default function SwitchRackManager() {
         return s;
       }));
 
-      // Atualizar modal se estiver aberto
       if (showPortsModal?.id === switchId) {
         setShowPortsModal({ ...switchItem, ports_status: newPortsStatus, used_ports });
       }
@@ -242,7 +325,6 @@ export default function SwitchRackManager() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Switches e Racks</h1>
         
-        {/* Error Alert */}
         {error && (
           <div className="mb-4 p-4 bg-red-100 dark:bg-red-800/20 border border-red-400 text-red-700 dark:text-red-400 rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
@@ -256,7 +338,6 @@ export default function SwitchRackManager() {
           </div>
         )}
         
-        {/* Legend */}
         <div className="flex gap-4 mt-2 mb-4">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-100 dark:bg-green-800 rounded-full"></div>
@@ -311,10 +392,18 @@ export default function SwitchRackManager() {
           >
             Atualizar
           </button>
+          <button
+            onClick={exportToExcel}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={activeTab === 'switches' ? switches.length === 0 : racks.length === 0}
+          >
+            <Download className="w-4 h-4 inline mr-2" />
+            Exportar Excel
+          </button>
         </div>
       </div>
 
-      {/* Add Form Modal */}
+      {/* Modal de Adicionar */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 max-h-[90vh] overflow-y-auto">
@@ -379,6 +468,14 @@ export default function SwitchRackManager() {
                   onChange={(e) => setNewSwitch({...newSwitch, ip_address: e.target.value})}
                   className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 />
+                <select
+                  value={newSwitch.status}
+                  onChange={(e) => setNewSwitch({...newSwitch, status: e.target.value as 'active' | 'inactive'})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                >
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
                 <label className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
@@ -432,6 +529,14 @@ export default function SwitchRackManager() {
                   className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                   required
                 />
+                <select
+                  value={newRack.status}
+                  onChange={(e) => setNewRack({...newRack, status: e.target.value as 'active' | 'inactive'})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                >
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
               </div>
             )}
             
@@ -455,7 +560,167 @@ export default function SwitchRackManager() {
         </div>
       )}
 
-      {/* Ports Management Modal */}
+      {/* Modal de Edição */}
+      {showEditForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-96 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">
+              Editar {showEditForm.type === 'switch' ? 'Switch' : 'Rack'}
+            </h2>
+            
+            {showEditForm.type === 'switch' ? (
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Nome do Switch"
+                  value={editSwitch.name || ''}
+                  onChange={(e) => setEditSwitch({...editSwitch, name: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Modelo"
+                  value={editSwitch.model || ''}
+                  onChange={(e) => setEditSwitch({...editSwitch, model: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  required
+                />
+                <select
+                  value={editSwitch.sector || ''}
+                  onChange={(e) => setEditSwitch({...editSwitch, sector: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  required
+                >
+                  <option value="">Selecione o Setor</option>
+                  {sectors.map(sector => (
+                    <option key={sector} value={sector}>{sector}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Posição no Rack"
+                  value={editSwitch.rack_position || 1}
+                  onChange={(e) => setEditSwitch({...editSwitch, rack_position: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
+                <input
+                  type="number"
+                  placeholder="Total de Portas"
+                  value={editSwitch.total_ports || 24}
+                  onChange={(e) => {
+                    const ports = parseInt(e.target.value);
+                    setEditSwitch({
+                      ...editSwitch, 
+                      total_ports: ports,
+                      ports_status: Array(ports).fill(false).map((_, i) => i < (editSwitch.used_ports || 0))
+                    });
+                  }}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
+                <input
+                  type="text"
+                  placeholder="IP Address"
+                  value={editSwitch.ip_address || ''}
+                  onChange={(e) => setEditSwitch({...editSwitch, ip_address: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
+                <select
+                  value={editSwitch.status || 'active'}
+                  onChange={(e) => setEditSwitch({...editSwitch, status: e.target.value as 'active' | 'inactive'})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                >
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
+                <label className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={editSwitch.is_poe || false}
+                    onChange={(e) => setEditSwitch({...editSwitch, is_poe: e.target.checked})}
+                    className="rounded"
+                  />
+                  PoE (Power over Ethernet)
+                </label>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Nome do Rack"
+                  value={editRack.name || ''}
+                  onChange={(e) => setEditRack({...editRack, name: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  required
+                />
+                <select
+                  value={editRack.sector || ''}
+                  onChange={(e) => setEditRack({...editRack, sector: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  required
+                >
+                  <option value="">Selecione o Setor</option>
+                  {sectors.map(sector => (
+                    <option key={sector} value={sector}>{sector}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Total de Unidades (U)"
+                  value={editRack.total_units || 42}
+                  onChange={(e) => setEditRack({...editRack, total_units: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
+                <input
+                  type="number"
+                  placeholder="Unidades Utilizadas"
+                  value={editRack.used_units || 0}
+                  onChange={(e) => setEditRack({...editRack, used_units: parseInt(e.target.value)})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
+                <input
+                  type="text"
+                  placeholder="Localização"
+                  value={editRack.location || ''}
+                  onChange={(e) => setEditRack({...editRack, location: e.target.value})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  required
+                />
+                <select
+                  value={editRack.status || 'active'}
+                  onChange={(e) => setEditRack({...editRack, status: e.target.value as 'active' | 'inactive'})}
+                  className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                >
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
+              </div>
+            )}
+            
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={showEditForm.type === 'switch' ? updateSwitch : updateRack}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                <Check className="w-4 h-4 inline mr-2" />
+                Salvar
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditForm(null);
+                  setEditSwitch({});
+                  setEditRack({});
+                }}
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+              >
+                <X className="w-4 h-4 inline mr-2" />
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPortsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-[600px] max-h-[90vh] overflow-y-auto">
@@ -512,7 +777,6 @@ export default function SwitchRackManager() {
         </div>
       )}
 
-      {/* Content */}
       {activeTab === 'switches' ? (
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {switches.length === 0 ? (
@@ -547,6 +811,13 @@ export default function SwitchRackManager() {
                         title="Gerenciar Portas"
                       >
                         <Settings className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openEditForm('switch', switch_item)}
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/20 rounded-lg transition-colors"
+                        title="Editar Switch"
+                      >
+                        <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => switch_item.id && deleteSwitch(switch_item.id)}
@@ -630,6 +901,13 @@ export default function SwitchRackManager() {
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      <button
+                        onClick={() => openEditForm('rack', rack)}
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/20 rounded-lg transition-colors"
+                        title="Editar Rack"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => rack.id && deleteRack(rack.id)}
                         className="p-2 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-800/20 rounded-lg transition-colors"

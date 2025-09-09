@@ -5,7 +5,8 @@ import cors from 'cors';
 import path from 'path';
 import pkg from 'pg';
 import fs from 'fs';
-const { Pool } = pkg;
+import { NetworkMonitor } from './network-monitor.js';
+import { Pool } from 'pg';
 
 const app = express();
 
@@ -17,25 +18,35 @@ const db = new Pool({
   database: 'superips_db'
 });
 
+// Inicia o monitor
+const monitor = new NetworkMonitor(db);
+
+// Loop infinito de monitoramento
+async function startRealtimeMonitoring() {
+  while (true) {
+    try {
+      const devices = await monitor.discoverNetworkDevices();
+      for (const device of devices) {
+        await monitor.saveDeviceToDatabase(device);
+      }
+    } catch (err) {
+      console.error("Erro no monitoramento:", err);
+    }
+    // tempo entre ciclos (30s, ajusta conforme quiser)
+    await new Promise((res) => setTimeout(res, 30 * 1000));
+  }
+}
+
+// Dispara quando o servidor sobe
+startRealtimeMonitoring();
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
 
-import { NetworkMonitor, networkMonitoringTables } from './network-monitor.js';
 
 // Inicializar o monitor de rede
 const networkMonitor = new NetworkMonitor(db);
-
-// Criar tabelas necessárias (execute uma vez)
-app.post('/api/setup-monitoring-tables', async (req, res) => {
-  try {
-    await db.query(networkMonitoringTables);
-    res.json({ success: true, message: 'Tabelas de monitoramento criadas com sucesso' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Descobrir dispositivos na rede
 app.post('/api/network/discover', async (req, res) => {
@@ -905,7 +916,6 @@ app.post('/api/boxes/:id/power-status', async (req, res) => {
       'UPDATE devices SET online = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND sector = $3 RETURNING id AS device_id, ip, name, status, online AS power_status',
       [power_status, id, 'Caixas']
     );
-    console.log(updateResult);
     if (updateResult.rowCount === 0) {
       return res.status(404).json({ error: 'Box not found' });
     }
@@ -1274,58 +1284,6 @@ app.delete('/api/racks/:id', async (req, res) => {
     res.status(500).json({ message: 'Erro ao remover rack' });
   }
 });
-
-// ========== SCRIPT SQL PARA CRIAR AS TABELAS ==========
-/*
-Execute este SQL no seu PostgreSQL para criar as tabelas necessárias:
-
--- Tabela de Switches
-CREATE TABLE IF NOT EXISTS switches (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  model VARCHAR(100) NOT NULL,
-  sector VARCHAR(50) NOT NULL,
-  rack_position INTEGER DEFAULT 1,
-  total_ports INTEGER DEFAULT 24,
-  used_ports INTEGER DEFAULT 0,
-  is_poe BOOLEAN DEFAULT false,
-  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  ip_address VARCHAR(15) DEFAULT '',
-  ports_status JSONB DEFAULT '[]',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Tabela de Racks
-CREATE TABLE IF NOT EXISTS racks (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  sector VARCHAR(50) NOT NULL,
-  total_units INTEGER DEFAULT 42,
-  used_units INTEGER DEFAULT 0,
-  location VARCHAR(255) NOT NULL,
-  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Índices para melhor performance
-CREATE INDEX IF NOT EXISTS idx_switches_sector ON switches(sector);
-CREATE INDEX IF NOT EXISTS idx_switches_status ON switches(status);
-CREATE INDEX IF NOT EXISTS idx_racks_sector ON racks(sector);
-CREATE INDEX IF NOT EXISTS idx_racks_status ON racks(status);
-
--- Inserir alguns dados de exemplo (opcional)
-INSERT INTO switches (name, model, sector, rack_position, total_ports, used_ports, is_poe, ip_address, ports_status) VALUES
-('SW-TI-01', 'Cisco SG350-24', 'TI', 1, 24, 18, true, '192.168.1.10', '[true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false,false,false]'),
-('SW-ADM-01', 'HPE 1920-24G', 'Administrativo', 2, 24, 12, false, '192.168.1.11', '[true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false,false,false,false,false,false,false,false,false]'),
-('SW-PROD-01', 'Cisco SG350-24P', 'Produção', 1, 24, 20, true, '192.168.1.12', '[true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,false,false,false,false]');
-
-INSERT INTO racks (name, sector, total_units, used_units, location) VALUES
-('RACK-TI-01', 'TI', 42, 8, 'Sala de Servidores - Andar 1'),
-('RACK-ADM-01', 'Administrativo', 24, 5, 'Sala de TI - Andar 2'),
-('RACK-PROD-01', 'Produção', 42, 12, 'Galpão de Produção');
-*/
 
 const __dirname = path.resolve();
 const distPath = path.join(__dirname, 'dist');

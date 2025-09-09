@@ -94,12 +94,14 @@ export default function Routers() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {safeRouters.map((router) => (
-          <div 
-            key={router.id} 
-            className={` shadow-xl dark:shadow-gray-500/30
+        {safeRouters.map((router) => {
+          const status = Number(router.status);
+          return (
+            <div
+              key={router.id}
+              className={` shadow-xl dark:shadow-gray-500/30
               rounded-2xl overflow-hidden transition-all duration-200
-              ${router.status === 1 
+              ${status === 1
                 ? 'bg-green-50 dark:bg-green-800/20 border-2 border-green-200 dark:border-green-800' 
                 : 'bg-gray-50 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700'}
             `}
@@ -107,24 +109,25 @@ export default function Routers() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Signal className={`w-5 h-5 ${router.status === 1 ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+                  
+                  <Signal className={`w-5 h-5 ${status === 1 ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
                   <h2 className="text-lg font-medium">
                     {router.name || 'Nome não disponível'}
                   </h2>
                 </div>
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    router.status === 1 
+                    status === 1 
                       ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' 
                       : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
                   }`}
                 >
-                  {router.status === 1 ? (
+                  {status === 1 ? (
                     <Activity className="w-3 h-3 mr-1" />
                   ) : (
                     <Power className="w-3 h-3 mr-1" />
                   )}
-                  {router.status === 1 ? 'Online' : 'Offline'}
+                  {status === 1 ? 'Online' : 'Offline'}
                 </span>
               </div>
 
@@ -205,7 +208,7 @@ export default function Routers() {
               </button>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {qrCodeData && (
