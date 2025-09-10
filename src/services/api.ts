@@ -16,7 +16,10 @@ import type {
   SnmpResult,
   BandwidthResult,
   Switch,
-  Rack
+  Rack,
+  Router,
+  Printer,
+  Box
 } from '../types';
 
 // Configuração da instância do Axios 
@@ -65,13 +68,28 @@ class ApiService {
     return response.data;
   }
 
+  async updateRouter(id: number, routerData: Partial<Router>): Promise<Router> {
+    const response = await api.put(`/routers/${id}`, routerData);
+    return response.data;
+  }
+
   async getPrinters() {
     const response = await api.get('/printers');
     return response.data;
   }
 
+  async updatePrinter(id: number, printerData: Partial<Printer>): Promise<Printer> {
+    const response = await api.put(`/printers/${id}`, printerData);
+    return response.data;
+  }
+  
   async getBoxes() {
     const response = await api.get('/boxes');
+    return response.data;
+  }
+
+  async updatedBox(id: number, boxData: Partial<Box>): Promise<Box> {
+    const response = await api.put(`/boxes/${id}`, boxData);
     return response.data;
   }
 
@@ -120,6 +138,17 @@ class ApiService {
     const response = await api.get(`/network/devices/${id}`);
     return response.data;
   }
+
+  async getAvailableIPs(network?: string): Promise<string[]> {
+    const url = network 
+      ? `/devices/available-ips?network=${network}`
+      : '/devices/available-ips';
+    
+    const response = await api.get(url);
+    // Extrai apenas os IPs
+    return response.data.available.map((item: any) => item.ip);
+  }
+
 
   async updateNetworkDevice(id: number, data: {
     hostname?: string;
@@ -390,14 +419,15 @@ class ApiService {
 
 export const apiService = new ApiService();
 
-// Export individual methods for convenience
 export const {
   getDevices,
   createDevice,
   updateDevice,
   deleteDevice,
   getRouters,
+  updateRouter,
   getPrinters,
+  updatePrinter,
   getBoxes,
   getTasks,
   createTask,
@@ -435,5 +465,11 @@ export const {
   getRacks,
   createRack,
   updateRack,
-  deleteRack
+  deleteRack,
+  isValidIP,
+  isValidMAC,
+  formatResponseTime,
+  formatLastSeen,
+  formatBytes,
+  updatedBox
 } = apiService;

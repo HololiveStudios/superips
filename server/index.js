@@ -109,7 +109,7 @@ app.get('/api/network/devices/:id', async (req, res) => {
       SELECT * FROM monitoring_history 
       WHERE device_id = $1 
       ORDER BY timestamp DESC 
-      LIMIT 100
+      liMIT 100
     `, [id]);
     
     res.json({
@@ -249,7 +249,7 @@ app.get('/api/network/stats', async (req, res) => {
       WHERE status = 'open'
       GROUP BY service_name 
       ORDER BY count DESC 
-      LIMIT 10
+      liMIT 10
     `);
     
     const osStats = await db.query(`
@@ -270,7 +270,7 @@ app.get('/api/network/stats', async (req, res) => {
       WHERE vendor IS NOT NULL AND vendor != 'Unknown'
       GROUP BY vendor 
       ORDER BY count DESC 
-      LIMIT 10
+      liMIT 10
     `);
     
     res.json({
@@ -462,7 +462,7 @@ app.get('/api/network/search', async (req, res) => {
     let paramIndex = 1;
     
     if (type === 'ip' || type === 'all') {
-      sqlQuery += ` AND nd.ip ILIKE ${paramIndex}`;
+      sqlQuery += ` AND nd.ip IliKE ${paramIndex}`;
       params.push(`%${query}%`);
       paramIndex++;
     }
@@ -470,9 +470,9 @@ app.get('/api/network/search', async (req, res) => {
     if (type === 'hostname' || type === 'all') {
       if (type === 'all') {
         sqlQuery = sqlQuery.replace('AND nd.ip', 'AND (nd.ip');
-        sqlQuery += ` OR nd.hostname ILIKE ${paramIndex})`;
+        sqlQuery += ` OR nd.hostname IliKE ${paramIndex})`;
       } else {
-        sqlQuery += ` AND nd.hostname ILIKE ${paramIndex}`;
+        sqlQuery += ` AND nd.hostname IliKE ${paramIndex}`;
       }
       params.push(`%${query}%`);
       paramIndex++;
@@ -480,9 +480,9 @@ app.get('/api/network/search', async (req, res) => {
     
     if (type === 'mac' || type === 'all') {
       if (type === 'all') {
-        sqlQuery = sqlQuery.replace(')', ` OR nd.mac_address ILIKE ${paramIndex})`);
+        sqlQuery = sqlQuery.replace(')', ` OR nd.mac_address IliKE ${paramIndex})`);
       } else {
-        sqlQuery += ` AND nd.mac_address ILIKE ${paramIndex}`;
+        sqlQuery += ` AND nd.mac_address IliKE ${paramIndex}`;
       }
       params.push(`%${query}%`);
       paramIndex++;
@@ -680,6 +680,136 @@ app.get('/api/network/bandwidth/:interface?', async (req, res) => {
   }
 });
 
+// Função helper para verificar se um campo está realmente vazio
+function isFieldEmpty(field) {
+  if (!field) return true; // null, undefined
+  if (typeof field !== 'string') return false; // se não for string, tem dados
+  
+  const cleaned = field.trim().toLowerCase();
+  return cleaned === '' || cleaned === 'desconhecido' || cleaned === 'reservado' || cleaned === 'null';
+}
+
+// Função para verificar se um dispositivo está realmente livre
+function isDeviceReallyFree(device) {
+  // Um dispositivo só é livre se TODOS os campos importantes estão vazios
+  const nameEmpty = isFieldEmpty(device.name);
+  const typeEmpty = isFieldEmpty(device.type);
+  const userEmpty = isFieldEmpty(device.user);
+  const sectorEmpty = isFieldEmpty(device.sector);
+  
+  // TODOS os campos devem estar vazios para ser considerado livre
+  return nameEmpty && typeEmpty && userEmpty && sectorEmpty;
+}
+
+// API melhorada para buscar IPs disponíveis
+app.get('/api/devices/available-ips', async (req, res) => {
+  try {
+    const networks = ['10.0.11', '10.2.11', '10.4.11'];
+    const { network } = req.query;
+    
+    const usedDevices = await db.query(`
+      SELECT ip, name, type, "user", sector, status 
+      FROM devices 
+      ORDER BY ip
+    `);
+    const devices = usedDevices.rows;
+
+    const available = [];
+    const networksToCheck = network ? [network] : networks;
+
+    for (const net of networksToCheck) {
+     for (let i = 1; i <= 254; i++) {
+  const ip = `${net}.${i}`;
+        const device = devices.find(d => d.ip === ip);
+
+        if (!device) {
+          // IP não existe no banco - totalmente livre
+          available.push({
+            ip: ip,
+            status: 'não_cadastrado',
+            reason: 'IP não encontrado no banco de dados'
+          });
+        } else {
+          // Verificar se o dispositivo está realmente livre
+          if (isDeviceReallyFree(device)) {
+            available.push({
+              ip: ip,
+              status: 'livre',
+              reason: 'Todos os campos estão vazios',
+              device_status: device.status === 0 ? 'offline' : 'online'
+            });
+          }
+          // Se não está livre, não adiciona na lista de disponíveis
+        }
+      }
+    }
+
+    // Estatísticas
+    const stats = {};
+    for (const net of networks) {
+      const networkIPs = available.filter(item => item.ip.startsWith(net));
+      const totalDevicesInNetwork = devices.filter(d => d.ip.startsWith(net)).length;
+      
+      stats[net] = {
+        available_count: networkIPs.length,
+        total_devices: totalDevicesInNetwork,
+        usage_percentage: ((totalDevicesInNetwork / 254) * 100).toFixed(1)
+      };
+    }
+
+    res.json({
+      available: available,
+      stats: stats,
+      total_available: available.length,
+      networks: networks
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar IPs disponíveis:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// API para verificar um IP específico
+app.get('/api/devices/check-ip/:ip', async (req, res) => {
+  try {
+    const { ip } = req.params;
+    
+    const result = await db.query(`
+      SELECT * FROM devices WHERE ip = $1
+    `, [ip]);
+
+    if (result.rows.length === 0) {
+      res.json({
+        ip: ip,
+        status: 'não_cadastrado',
+        available: true,
+        message: 'IP não encontrado no banco de dados'
+      });
+    } else {
+      const device = result.rows[0];
+      const isFree = isDeviceReallyFree(device);
+
+      res.json({
+        ip: ip,
+        status: isFree ? 'livre' : 'ocupado',
+        available: isFree,
+        device: device,
+        message: isFree ? 'IP disponível para uso' : 'IP já está em uso',
+        details: {
+          name_empty: isFieldEmpty(device.name),
+          type_empty: isFieldEmpty(device.type),
+          user_empty: isFieldEmpty(device.user),
+          sector_empty: isFieldEmpty(device.sector)
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao verificar IP:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/devices', async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM devices ORDER BY ip');
@@ -787,7 +917,7 @@ app.post('/api/devices/import', upload.single('file'), async (req, res) => {
             const q = `
               INSERT INTO devices (id, ip, name, type, "user", sector, status, online)
               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-              ON CONFLICT (id) DO UPDATE
+              ON CONFliCT (id) DO UPDATE
               SET ip = EXCLUDED.ip, name = EXCLUDED.name, type = EXCLUDED.type,
                   "user" = EXCLUDED."user", sector = EXCLUDED.sector,
                   status = EXCLUDED.status, online = EXCLUDED.online
@@ -875,30 +1005,366 @@ app.get('/api/routers', async (req, res) => {
   }
 });
 
-app.get('/api/printers', async (req, res) => {
+app.put('/api/routers/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    name,
+    ip,
+    status,
+    sector,
+    model,
+    login_username,
+    login_password,
+    wifi_ssid,
+    wifi_password,
+    hidden
+  } = req.body;
+
   try {
-    const result = await db.query("SELECT * FROM devices WHERE type = 'Impressora' ORDER BY sector, ip");
-    res.json(result.rows);
+    // 1. Busca o IP antigo do roteador
+    const current = await db.query(
+      "SELECT ip FROM devices WHERE id = $1 AND type = 'Roteador'",
+      [id]
+    );
+
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'Roteador não encontrado' });
+    }
+
+    const oldIp = current.rows[0].ip;
+
+    // 2. Se o IP mudou, limpa o IP antigo
+    if (oldIp && oldIp !== ip) {
+      await db.query(
+        `UPDATE devices
+         SET name = NULL,
+             type = NULL,
+             "user" = NULL,
+             sector = NULL,
+             status = NULL,
+             model = NULL,
+             login_username = NULL,
+             login_password = NULL,
+             wifi_ssid = NULL,
+             wifi_password = NULL,
+             hidden = NULL
+         WHERE ip = $1`,
+        [oldIp]
+      );
+    }
+
+    // 3. Verifica se o novo IP já existe
+    const existing = await db.query(
+      "SELECT id FROM devices WHERE ip = $1",
+      [ip]
+    );
+
+    let result;
+    if (existing.rows.length > 0) {
+      // Atualiza o registro existente com os dados do roteador
+      result = await db.query(
+        `UPDATE devices
+         SET name = $1,
+             type = 'Roteador',
+             status = $2,
+             sector = $3,
+             model = $4,
+             login_username = $5,
+             login_password = $6,
+             wifi_ssid = $7,
+             wifi_password = $8,
+             hidden = $9
+         WHERE ip = $10
+         RETURNING *`,
+        [name, status, sector, model, login_username, login_password, wifi_ssid, wifi_password, hidden, ip]
+      );
+    } else {
+      // Atualiza o próprio registro do roteador para usar o novo IP
+      result = await db.query(
+        `UPDATE devices
+         SET name = $1,
+             ip = $2,
+             type = 'Roteador',
+             status = $3,
+             sector = $4,
+             model = $5,
+             login_username = $6,
+             login_password = $7,
+             wifi_ssid = $8,
+             wifi_password = $9,
+             hidden = $10
+         WHERE id = $11
+         RETURNING *`,
+        [name, ip, status, sector, model, login_username, login_password, wifi_ssid, wifi_password, hidden, id]
+      );
+    }
+
+    res.json(result.rows[0]);
+
   } catch (error) {
+    console.error('Erro ao atualizar roteador:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
+// 1. Corrigir o GET para garantir tipos consistentes
+app.get('/api/printers', async (req, res) => {
+  try {
+    const result = await db.query("SELECT * FROM devices WHERE type = 'Impressora' ORDER BY sector, ip");
+    
+    // Garantir que os campos numéricos sejam retornados como números
+    const printers = result.rows.map(printer => ({
+      ...printer,
+      online: Number(printer.online) || 0,
+      status: Number(printer.status) || 0,
+      // Garantir que campos opcionais existam
+      npat: printer.npat || 0
+    }));
+    
+    res.json(printers);
+  } catch (error) {
+    console.error('Erro ao buscar impressoras:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Corrigir o PUT para incluir o campo 'online' e melhorar a lógica
+app.put('/api/printers/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    name,
+    ip,
+    online,
+    status,
+    sector,
+    model,
+    user,
+    npat,
+    li,  // Leitura Inicial
+    lf   // Leitura Final
+  } = req.body;
+
+  try {
+    // Buscar dados atuais da impressora
+    const current = await db.query(
+      "SELECT ip FROM devices WHERE id = $1 AND type = 'Impressora'",
+      [id]
+    );
+
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'Impressora não encontrada' });
+    }
+
+    const oldIp = current.rows[0].ip;
+
+    // Se o IP mudou, limpar o registro antigo
+    if (oldIp && oldIp !== ip) {
+      await db.query(
+        `UPDATE devices
+         SET name = NULL,
+             type = NULL,
+             "user" = NULL,
+             sector = NULL,
+             status = NULL,
+             online = NULL,
+             model = NULL,
+             npat = NULL,
+             "li" = NULL,
+             "lf" = NULL
+         WHERE ip = $1`,
+        [oldIp]
+      );
+    }
+
+    // Verificar se já existe um dispositivo com o novo IP
+    const existing = await db.query(
+      "SELECT id FROM devices WHERE ip = $1 AND id != $2",
+      [ip, id]
+    );
+
+    let result;
+    if (existing.rows.length > 0) {
+      // Atualizar o dispositivo existente com o novo IP
+      result = await db.query(
+        `UPDATE devices
+         SET name = $1,
+             type = 'Impressora',
+             online = $2,
+             status = $3,
+             sector = $4,
+             model = $5,
+             "user" = $6,
+             npat = $7,
+             "li" = $8,
+             "lf" = $9
+         WHERE ip = $10
+         RETURNING *`,
+        [name, online, status, sector, model, user, npat, Li, Lf, ip]
+      );
+    } else {
+      // Atualizar o dispositivo atual
+      result = await db.query(
+        `UPDATE devices
+         SET name = $1,
+             ip = $2,
+             type = 'Impressora',
+             online = $3,
+             status = $4,
+             sector = $5,
+             model = $6,
+             "user" = $7,
+             npat = $8,
+             "li" = $9,
+             "lf" = $10
+         WHERE id = $11
+         RETURNING *`,
+        [name, ip, online, status, sector, model, user, npat, li, lf, id]
+      );
+    }
+
+    // Garantir tipos consistentes na resposta
+    const updatedPrinter = {
+      ...result.rows[0],
+      online: Number(result.rows[0].online) || 0,
+      status: Number(result.rows[0].status) || 0,
+    };
+
+    res.json(updatedPrinter);
+
+  } catch (error) {
+    console.error('Erro ao atualizar impressora:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== CAIXAS ==========
 app.get('/api/boxes', async (req, res) => {
   try {
     const result = await db.query(`
       SELECT
-        id AS device_id,
+        id,
         ip,
         name,
         status,
-        online AS power_status
+        online AS power_status,
+        codigo_acesso,
+        identificacao,
+        chave
       FROM devices
       WHERE sector = 'Caixas'
       ORDER BY name
     `);
-    res.json(result.rows);
+
+    const boxes = result.rows.map(box => ({
+      ...box,
+      status: Number(box.status) || 0,
+      power_status: Number(box.power_status) || 0,
+    }));
+
+    res.json(boxes);
   } catch (error) {
+    console.error('Erro ao buscar caixas:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT - Atualiza dados do caixa
+app.put('/api/boxes/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    name,
+    ip,
+    status,
+    power_status,
+    codigo_acesso,
+    identificacao,
+    chave
+  } = req.body;
+
+  try {
+    // Busca IP antigo
+    const current = await db.query(
+      "SELECT ip FROM devices WHERE id = $1 AND sector = 'Caixas'",
+      [id]
+    );
+
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'Caixa não encontrado' });
+    }
+
+    const oldIp = current.rows[0].ip;
+
+    // Se o IP mudou, limpar registro antigo
+    if (oldIp && oldIp !== ip) {
+      await db.query(
+        `UPDATE devices
+         SET name = NULL,
+             type = NULL,
+             "user" = NULL,
+             sector = NULL,
+             status = NULL,
+             online = NULL,
+             codigo_acesso = NULL,
+             identificacao = NULL,
+             chave = NULL
+         WHERE ip = $1`,
+        [oldIp]
+      );
+    }
+
+    // Verifica se o novo IP já existe em outro registro
+    const existing = await db.query(
+      "SELECT id FROM devices WHERE ip = $1 AND id != $2",
+      [ip, id]
+    );
+
+    let result;
+    if (existing.rows.length > 0) {
+      // Atualiza o registro existente
+      result = await db.query(
+        `UPDATE devices
+         SET name = $1,
+             type = 'Caixa',
+             sector = 'Caixas',
+             ip = $2,
+             status = $3,
+             online = $4,
+             codigo_acesso = $5,
+             identificacao = $6,
+             chave = $7
+         WHERE ip = $2
+         RETURNING *`,
+        [name, ip, status, power_status, codigo_acesso, identificacao, chave]
+      );
+    } else {
+      // Atualiza o próprio registro
+      result = await db.query(
+        `UPDATE devices
+         SET name = $1,
+             ip = $2,
+             type = 'Caixa',
+             sector = 'Caixas',
+             status = $3,
+             online = $4,
+             codigo_acesso = $5,
+             identificacao = $6,
+             chave = $7
+         WHERE id = $8
+         RETURNING *`,
+        [name, ip, status, power_status, codigo_acesso, identificacao, chave, id]
+      );
+    }
+
+    const updatedBox = {
+      ...result.rows[0],
+      status: Number(result.rows[0].status) || 0,
+      power_status: Number(result.rows[0].online) || 0,
+    };
+
+    res.json(updatedBox);
+
+  } catch (error) {
+    console.error('Erro ao atualizar caixa:', error);
     res.status(500).json({ error: error.message });
   }
 });

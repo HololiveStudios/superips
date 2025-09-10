@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useDevicesStore } from '../store/devices';
 import { 
   Activity, Power, Search, ChevronDown, ChevronUp, 
-  ArrowRight, ArrowLeft, Edit2,Loader2 
+  ArrowRight, ArrowLeft, Edit2, Loader2, Filter,
+  WifiOff, Check
 } from 'lucide-react';
 import type { Device } from '../types';
 import { apiService } from '../services/api';
@@ -34,7 +35,6 @@ const EditModal: React.FC<EditModalProps> = ({ device, onClose, onSave, types = 
     lf: "",
     npat: ""
   });
-
 
   const [isNewType, setIsNewType] = useState(false);
   const [isNewSector, setIsNewSector] = useState(false);
@@ -192,7 +192,6 @@ const EditModal: React.FC<EditModalProps> = ({ device, onClose, onSave, types = 
               className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-gray-100"
             />
           )}
-
         </div>
 
         {/* Campos condicionais */}
@@ -316,15 +315,40 @@ export default function Devices() {
     key: 'ip',
     direction: 'asc'
   });
-  const [currentNetwork, setCurrentNetwork] = useState<'10.0' | '10.2' | '10.4'>('10.0');
-  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [expandedDeviceId, setExpandedDeviceId] = useState<number | null>(null);
-  const types = Array.from(new Set(devices.map(d => d.type).filter(Boolean)));
-  const sectors = Array.from(new Set(devices.map(d => d.sector).filter(Boolean)));
+// Agora o tipo já reflete as faixas corretas
+const [currentNetwork, setCurrentNetwork] = useState<'10.0.11' | '10.2.11' | '10.4.11'>('10.0.11');
 
-  const getDevicesByNetwork = (network: '10.0' | '10.2' | '10.4'): Device[] => {
-    return devices.filter(device => device.ip.startsWith(network));
+const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+const [expandedDeviceId, setExpandedDeviceId] = useState<number | null>(null);
+const [viewMode, setViewMode] = useState<'all' | 'free'>('all');
+
+const types = Array.from(new Set(devices.map(d => d.type).filter(Boolean)));
+const sectors = Array.from(new Set(devices.map(d => d.sector).filter(Boolean)));
+
+const [availableIPs, setAvailableIPs] = useState<string[]>([]);
+
+// Também ajusta aqui para usar o prefixo correto
+const getDevicesByNetwork = (network: '10.0.11' | '10.2.11' | '10.4.11'): Device[] => {
+  return devices.filter(device => device.ip.startsWith(network));
+};
+
+useEffect(() => {
+  const fetchAvailableIPs = async (network: '10.0.11' | '10.2.11' | '10.4.11') => {
+    try {
+      const ips = await apiService.getAvailableIPs(network);
+      setAvailableIPs(ips); // agora é realmente string[]
+    } catch (error) {
+      console.error('Erro ao buscar IPs disponíveis:', error);
+      setAvailableIPs([]);
+    }
   };
+
+  fetchAvailableIPs(currentNetwork);
+}, [currentNetwork, devices]);
+
+// Loga sempre que availableIPs mudar
+useEffect(() => {
+}, [availableIPs]);
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -355,12 +379,14 @@ export default function Devices() {
         setIsLoading(false);
       }
     };
-
+    
     fetchDevices();
   }, [setDevices]);
 
   useEffect(() => {
-    let list = getDevicesByNetwork(currentNetwork);
+let list = viewMode === 'free' 
+  ? getDevicesByNetwork(currentNetwork).filter(d => availableIPs.includes(d.ip))
+  : getDevicesByNetwork(currentNetwork);
 
     list = list.filter(device =>
       Object.values(device).some(value =>
@@ -386,7 +412,7 @@ export default function Devices() {
     }
 
     setFilteredDevices(list);
-  }, [devices, searchTerm, currentNetwork, sortConfig]);
+  }, [devices, searchTerm, currentNetwork, sortConfig, viewMode]);
 
   const handleSort = (key: keyof Device) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -413,7 +439,7 @@ export default function Devices() {
   };
 
   const switchNetwork = (direction: 'next' | 'prev') => {
-    const networks: ('10.0' | '10.2' | '10.4')[] = ['10.0', '10.2', '10.4'];
+    const networks: ('10.0.11' | '10.2.11' | '10.4.11')[] = ['10.0.11', '10.2.11', '10.4.11'];
     const currentIndex = networks.indexOf(currentNetwork);
     
     if (direction === 'next') {
@@ -436,6 +462,24 @@ export default function Devices() {
     </span>
   );
 
+  const FreeIPIndicator = () => (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-600 text-white">
+      <WifiOff className="w-3 h-3" />
+    </span>
+  );
+
+    const getDeviceCountText = () => {
+  if (viewMode === 'free') {
+    const freeCount = availableIPs.length;
+    return `${freeCount} IP${freeCount !== 1 ? 's' : ''} livre${freeCount !== 1 ? 's' : ''}`;
+  } else {
+    const totalCount = getDevicesByNetwork(currentNetwork).length;
+    const freeCount = availableIPs.length;
+    return `${totalCount} dispositivos (${freeCount} livres)`;
+  }
+
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -457,51 +501,100 @@ export default function Devices() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Dispositivos
-        </h1>
-        <div className="relative w-full md:w-96 mt-4 md:mt-0">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Dispositivos
+          </h1>
+          <div className="relative w-full md:w-96 mt-4 md:mt-0">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar dispositivos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
+            />
           </div>
-          <input
-            type="text"
-          placeholder="Buscar dispositivos..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
-        />
-      </div>
-        <div className="mt-4 md:mt-0 flex items-center space-x-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            Subrede: {currentNetwork}.x
-          </span>
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={() => switchNetwork('prev')}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => switchNetwork('next')}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-            >
-              <ArrowRight className="w-4 h-4" />
-            </button>
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Seletor de Subrede */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                Subrede: {currentNetwork}.x
+              </span>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => switchNetwork('prev')}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => switchNetwork('next')}
+                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Filtros de Visualização */}
+            <div className="flex items-center space-x-2">
+              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('all')}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors duration-150 ${
+                    viewMode === 'all'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setViewMode('free')}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors duration-150 flex items-center space-x-1 ${
+                    viewMode === 'free'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                  }`}
+                >
+                  <WifiOff className="w-3 h-3" />
+                  <span>IPs Livres</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Contador de dispositivos */}
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {getDeviceCountText()}
           </div>
         </div>
       </div>
 
-
-
       {filteredDevices.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-500/30 p-8 text-center">
           <div className="text-gray-500 dark:text-gray-400">
-            <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium">Nenhum dispositivo encontrado</p>
-            <p className="text-sm">Tente ajustar os filtros de busca</p>
+            {viewMode === 'free' ? (
+              <>
+                <Check className="w-12 h-12 mx-auto mb-4 opacity-50 text-green-500" />
+                <p className="text-lg font-medium">Nenhum IP livre encontrado</p>
+                <p className="text-sm">Todos os IPs desta subrede estão em uso ou configurados</p>
+              </>
+            ) : (
+              <>
+                <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">Nenhum dispositivo encontrado</p>
+                <p className="text-sm">Tente ajustar os filtros de busca</p>
+              </>
+            )}
           </div>
         </div>
       ) : (
@@ -530,25 +623,38 @@ export default function Devices() {
                   </tr>
                 </thead>
                 <tbody className="dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredDevices.map((device) => (
-                    <tr key={device.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
+                  {filteredDevices.map((device) => {
+                    const isFree = Array.isArray(availableIPs) && availableIPs.includes(device.ip);
+
+                    return (
+                    <tr 
+                      key={device.id} 
+                      className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 ${
+                        isFree ? 'bg-orange-50 dark:bg-orange-900/20' : ''
+                      }`}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 font-mono">
                         {device.ip}
+                        {isFree && (
+                          <span className="ml-2 text-xs text-orange-600 dark:text-orange-400 font-normal">
+                            (livre)
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                        {device.name}
+                        {device.name || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 capitalize">
-                        {device.type}
+                        {device.type || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 capitalize">
-                        {device.user}
+                        {device.user || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 capitalize">
-                        {device.sector}
+                        {device.sector || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusIndicator status={device.status} />
+                        {isFree ? <FreeIPIndicator /> : <StatusIndicator status={device.status} />}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
@@ -562,17 +668,23 @@ export default function Devices() {
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             </div>
           </div>
 
-          <div className="lg:hidden space-y-4 p-4">
-            {filteredDevices.map((device) => (
+          <div className="lg:hidden space-y-4 p-4 screen-full">
+            {filteredDevices.map((device) => {
+              const isFree = Array.isArray(availableIPs) && availableIPs.includes(device.ip);
+
+              return (
               <div
                 key={device.id}
-                className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden"
+                className={`bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden ${
+                  isFree ? 'border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-900/20' : ''
+                }`}
               >
                 <div
                   className="p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors duration-150"
@@ -580,10 +692,17 @@ export default function Devices() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <StatusIndicator status={device.status} />
+                      {isFree ? <FreeIPIndicator /> : <StatusIndicator status={device.status} />}
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{device.name}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">IP: {device.ip}</p>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center space-x-2">
+                          <span>{device.name || 'Sem nome'}</span>
+                          {isFree && (
+                            <span className="text-xs bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 px-2 py-1 rounded-full">
+                              IP Livre
+                            </span>
+                          )}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-mono">IP: {device.ip}</p>
                       </div>
                     </div>
                     <ChevronDown 
@@ -599,17 +718,28 @@ export default function Devices() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <span className="text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wide mb-1">Tipo</span>
-                          <span className="text-gray-900 dark:text-gray-100 capitalize">{device.type}</span>
+                          <span className="text-gray-900 dark:text-gray-100 capitalize">{device.type || '-'}</span>
                         </div>
                         <div>
                           <span className="text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wide mb-1">Usuário</span>
-                          <span className="text-gray-900 dark:text-gray-100">{device.user}</span>
+                          <span className="text-gray-900 dark:text-gray-100">{device.user || '-'}</span>
                         </div>
                       </div>
                       <div>
                         <span className="text-gray-500 dark:text-gray-400 block text-xs uppercase tracking-wide mb-1">Setor</span>
-                        <span className="text-gray-900 dark:text-gray-100">{device.sector}</span>
+                        <span className="text-gray-900 dark:text-gray-100">{device.sector || '-'}</span>
                       </div>
+                      {isFree && (
+                        <div className="bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+                          <div className="flex items-center space-x-2 text-orange-800 dark:text-orange-200">
+                            <WifiOff className="w-4 h-4" />
+                            <span className="text-sm font-medium">IP Disponível</span>
+                          </div>
+                          <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
+                            Este IP está livre e pode ser usado para um novo dispositivo
+                          </p>
+                        </div>
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -624,21 +754,21 @@ export default function Devices() {
                   </div>
                 )}
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       )}
 
-{editingDevice && (
-  <EditModal
-    device={editingDevice}
-    onClose={() => setEditingDevice(null)}
-    onSave={handleSaveDevice}
-    types={types}
-    sectors={sectors}
-  />
-)}
-
+      {editingDevice && (
+        <EditModal
+          device={editingDevice}
+          onClose={() => setEditingDevice(null)}
+          onSave={handleSaveDevice}
+          types={types}
+          sectors={sectors}
+        />
+      )}
     </div>
   );
 }

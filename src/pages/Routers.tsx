@@ -8,9 +8,12 @@ import {
   Wifi, 
   Signal, 
   User,
-  QrCode
+  QrCode,
+  Edit2
 } from 'lucide-react';
 import { QRCode } from 'react-qrcode-logo';
+import EditRouterModal from '../components/EditRouterModal';
+import { apiService } from '../services/api';
 
 export default function Routers() {
   const [isClosing, setIsClosing] = useState(false);
@@ -19,6 +22,7 @@ export default function Routers() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<Record<number, { login?: boolean; wifi?: boolean }>>({});
   const [qrCodeData, setQrCodeData] = useState<{ ssid: string; password: string; hidden: boolean } | null>(null);
+  const [editingRouter, setEditingRouter] = useState<Router | null>(null);
 
   useEffect(() => {
     const fetchRouters = async () => {
@@ -67,7 +71,25 @@ export default function Routers() {
       setQrCodeData(null);
       setIsClosing(false);
     }, 300);
-  };  
+  };
+
+  const handleSaveRouter = async (updatedRouter: Router) => {
+    try {
+      const updatedData = await apiService.updateRouter(updatedRouter.id, updatedRouter);
+      setRouters(prev => prev.map(router => 
+        router.id === updatedData.id ? updatedData : router
+      ));
+    } catch (error: any) {
+      console.error('Error updating router:', error);
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error('Falha ao atualizar roteador');
+      }
+    }
+  };
 
   if (error) {
     return (
@@ -109,32 +131,52 @@ export default function Routers() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  
                   <Signal className={`w-5 h-5 ${status === 1 ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
                   <h2 className="text-lg font-medium">
                     {router.name || 'Nome não disponível'}
                   </h2>
+                  <button
+                    onClick={() => generateQrCode(router)}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="Gerar QR Code"
+                  >
+                    <QrCode className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  </button>
                 </div>
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    status === 1 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' 
-                      : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
-                  }`}
-                >
-                  {status === 1 ? (
-                    <Activity className="w-3 h-3 mr-1" />
-                  ) : (
-                    <Power className="w-3 h-3 mr-1" />
-                  )}
-                  {status === 1 ? 'Online' : 'Offline'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setEditingRouter(router)}
+                    className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    title="Editar roteador"
+                  >
+                    <Edit2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  </button>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      status === 1 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' 
+                        : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'
+                    }`}
+                  >
+                    {status === 1 ? (
+                      <Activity className="w-3 h-3 mr-1" />
+                    ) : (
+                      <Power className="w-3 h-3 mr-1" />
+                    )}
+                    {status === 1 ? 'Online' : 'Offline'}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-4">
                 <div className="p-3 bg-white/50 dark:bg-black/20 rounded-2xl">
                   <p className="text-sm text-gray-600 dark:text-gray-400">IP Address</p>
                   <p className="mt-1 text-sm font-medium">{router.ip || 'IP não disponível'}</p>
+                </div>
+
+                <div className="p-3 bg-white/50 dark:bg-black/20 rounded-2xl">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Modelo</p>
+                  <p className="mt-1 text-sm font-medium">{router.model || 'Modelo não disponível'}</p>
                 </div>
 
                 <div className="p-3 bg-white/50 dark:bg-black/20 rounded-2xl">
@@ -195,17 +237,6 @@ export default function Routers() {
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => generateQrCode(router)}
-                className="mt-6 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 
-                  bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl
-                  transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 
-                  focus:ring-indigo-500 dark:focus:ring-offset-gray-800"
-              >
-                <QrCode className="w-4 h-4" />
-                Gerar QR Code do Wi-Fi
-              </button>
             </div>
           </div>
         )})}
@@ -261,6 +292,14 @@ export default function Routers() {
             </button>
           </div>
         </div>
+      )}
+
+      {editingRouter && (
+        <EditRouterModal
+          router={editingRouter}
+          onClose={() => setEditingRouter(null)}
+          onSave={handleSaveRouter}
+        />
       )}
     </div>
   );

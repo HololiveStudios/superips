@@ -222,14 +222,29 @@ export interface Printer extends Device {
   device_id: number;
   model: string;
   npat: number;
-  status: DeviceStatus; 
+  status: DeviceStatus;
+  name: string;
+  ip: string;
+  online: 0 | 1;
+  sector: string;
+  user: string;
+  leitura_inicial: string;
+  leitura_final: string;
 }
 
 export interface Box extends Device {
-  power_status: number;
+  power_status: 0 | 1;
   device_id: number;
   ip: string;
   name: string;
+  codigo_acesso: string;
+  identification: string;
+  cript_key: string;
+  online: 0 | 1;
+  sector: string;
+  user: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface User {
@@ -519,12 +534,6 @@ export interface Rack {
   used_units: number;
   location: string;
   status: 'active' | 'inactive';
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  message: string;
-  success: boolean;
 }
 
 // Types

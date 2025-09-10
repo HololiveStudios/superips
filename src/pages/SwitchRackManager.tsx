@@ -63,7 +63,7 @@ export default function SwitchRackManager() {
   const [editSwitch, setEditSwitch] = useState<Partial<Switch>>({});
   const [editRack, setEditRack] = useState<Partial<Rack>>({});
 
-  const sectors = ['TI', 'Administrativo', 'Produção', 'Vendas', 'Financeiro', 'RH', 'Marketing'];
+  const sectors = ['TI', 'Administrativo', 'Produção', 'Vendas', 'Financeiro', 'RH', 'Marketing', 'Churrascaria'];
 
   useEffect(() => {
     loadData();

@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Monitor, CheckCircle2, Clock } from 'lucide-react';
+import { Monitor, CheckCircle2, Clock, Edit } from 'lucide-react';
 import { Switch } from '../components/ui/switch';
 import type { Box } from '../types';
+import EditBoxModal from '../components/EditBoxModal';
 
 export default function Boxes() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingBox, setEditingBox] = useState<Box | null>(null);
 
   useEffect(() => {
     const sanitizeBoxes = (arr: Box[]) => {
@@ -87,8 +89,65 @@ export default function Boxes() {
     }
   };
 
+  const handleEditBox = (box: Box) => {
+    setEditingBox(box);
+  };
+
+  const handleSaveBox = async (updatedBox: Box) => {
+    try {
+      const payload = {
+        name: updatedBox.name,
+        ip: updatedBox.ip,
+        power_status: updatedBox.power_status,
+        status: updatedBox.status,
+        chave: updatedBox.chave,
+        codigo_acesso: updatedBox.codigo_acesso,
+        identificacao: updatedBox.identificacao
+      };
+
+      const response = await fetch(`${import.meta.env.VITE_SERVER}:${import.meta.env.VITE_PORT}/api/boxes/${updatedBox.device_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update box: ${response.status} - ${errorText}`);
+      }
+
+      const savedBox = await response.json();
+      
+      setBoxes(prevBoxes =>
+        prevBoxes.map(box =>
+          box.device_id === savedBox.device_id 
+            ? { 
+                ...savedBox, 
+                power_status: Number(savedBox.power_status) as 0 | 1,
+                status: Number(savedBox.status) as 0 | 1
+              }
+            : box
+        )
+      );
+      setEditingBox(null);
+    } catch (error) {
+      console.error('Error updating box:', error);
+      setError(error instanceof Error ? error.message : 'Failed to update box');
+    }
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingBox(null);
+  };
+
   if (error) {
-    return <div className="text-red-500 p-4">Error: {error}</div>;
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 text-red-600 dark:text-red-400">
+        Error: {error}
+      </div>
+    );
   }
 
   if (isLoading) {
@@ -135,13 +194,40 @@ export default function Boxes() {
                     <p className="text-sm text-gray-600 dark:text-gray-400">{box.ip}</p>
                   </div>
                 </div>
-                <Switch
-                  checked={box.power_status === 1}
-                  onCheckedChange={(checked) => togglePowerStatus(box.device_id, checked ? 1 : 0)}
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEditBox(box)}
+                    className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors duration-200"
+                    title="Editar caixa"
+                  >
+                    <Edit className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  </button>
+                  <Switch
+                    checked={box.power_status === 1}
+                    onCheckedChange={(checked) => togglePowerStatus(box.device_id, checked ? 1 : 0)}
+                  />
+                </div>
+              </div>
+
+              {/* Informações detalhadas */}
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center justify-between px-3 py-2 bg-white/50 dark:bg-black/20 rounded-2xl">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Código de Acesso</span>
+                  <span className="text-sm font-medium font-mono">{box.codigo_acesso || '-'}</span>
+                </div>
+
+                <div className="flex items-center justify-between px-3 py-2 bg-white/50 dark:bg-black/20 rounded-2xl">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Identificação</span>
+                  <span className="text-sm font-medium">{box.identificacao || '-'}</span>
+                </div>
+
+                <div className="flex items-center justify-between px-3 py-2 bg-white/50 dark:bg-black/20 rounded-2xl">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Chave</span>
+                  <span className="text-sm font-medium font-mono">{box.chave || '-'}</span>
+                </div>
               </div>
               
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                 <span
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
                     box.status === 1
@@ -169,6 +255,15 @@ export default function Boxes() {
           </li>
         ))}
       </ul>
+
+      {/* Modal de edição - descomente quando criar o EditBoxModal */}
+      {editingBox && (
+        <EditBoxModal
+          box={editingBox}
+          onClose={handleCloseEditModal}
+          onSave={handleSaveBox}
+        />
+      )}
     </div>
   );
 }
