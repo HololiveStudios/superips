@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import type { Device } from '../types';
+import type { Device } from '@/types';
 import type {
   DiscoveryResult,
   NetworkDevice,
@@ -19,10 +19,10 @@ import type {
   Rack,
   Router,
   Printer,
-  Box
-} from '../types';
-
-// Configuração da instância do Axios 
+  Box,
+  Room,
+  DevicePosition
+} from '@/types';
 
 const api: AxiosInstance = axios.create({
   baseURL: 'http://10.0.11.150:5173/api',
@@ -32,7 +32,6 @@ const api: AxiosInstance = axios.create({
   }
 });
 
-// Interceptor para tratamento de erros
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
@@ -42,7 +41,6 @@ api.interceptors.response.use(
 );
 
 class ApiService {
-  // ========== DISPOSITIVOS ORIGINAIS ==========
   async getDevices(): Promise<Device[]> {
     const response = await api.get('/devices');
     return response.data;
@@ -88,12 +86,70 @@ class ApiService {
     return response.data;
   }
 
-  async updatedBox(id: number, boxData: Partial<Box>): Promise<Box> {
+  async updateBox(id: number, boxData: Partial<Box>): Promise<Box> {
     const response = await api.put(`/boxes/${id}`, boxData);
     return response.data;
   }
 
-  // ========== TASKS ==========
+  async getRooms(): Promise<Room[]> {
+    const response = await api.get('/rooms');
+    return response.data;
+  }
+
+  async createRoom(room: Omit<Room, 'id'>): Promise<Room> {
+    const response = await api.post('/rooms', room);
+    return response.data;
+  }
+
+  async updateRoom(id: number, room: Partial<Room>): Promise<Room> {
+    const response = await api.put(`/rooms/${id}`, room);
+    return response.data;
+  }
+
+  async deleteRoom(id: number): Promise<void> {
+    await api.delete(`/rooms/${id}`);
+  }
+
+  async getDevicePositions(): Promise<DevicePosition[]> {
+    const response = await api.get('/device-positions');
+    return response.data;
+  }
+
+  async updateDevicePosition(position: {
+    device_id: number
+    room_id: number
+    x: number
+    y: number
+  }): Promise<DevicePosition> {
+    const response = await api.post('/device-positions', position);
+    return response.data;
+  }
+
+  async deleteDevicePosition(deviceId: number): Promise<void> {
+    await api.delete(`/device-positions/${deviceId}`);
+  }
+
+  async batchUpdatePositions(positions: Array<{
+    device_id: number;
+    room_id: number;
+    x: number;
+    y: number;
+  }>): Promise<{ success: boolean; updated: number }> {
+    const response = await api.post('/device-positions/batch', { positions });
+    return response.data;
+  }
+
+  async getMapData(floor?: number): Promise<{
+    rooms: Room[];
+    devices: DevicePosition[];
+    sectors: string[];
+    device_types: string[];
+  }> {
+    const params = floor ? { floor } : {};
+    const response = await api.get('/map-data', { params });
+    return response.data;
+  }
+
   async getTasks() {
     const response = await api.get('/tasks');
     return response.data;
@@ -114,21 +170,16 @@ class ApiService {
     return response.data;
   }
 
-  // ========== MONITORAMENTO DE REDE ==========
-  
-  // Configuração e inicialização
   async setupMonitoringTables(): Promise<{ success: boolean; message: string }> {
     const response = await api.post('/setup-monitoring-tables');
     return response.data;
   }
 
-  // Descoberta de dispositivos
   async discoverNetworkDevices(): Promise<DiscoveryResult> {
     const response = await api.post('/network/discover');
     return response.data;
   }
 
-  // Dispositivos de rede
   async getNetworkDevices(): Promise<NetworkDevice[]> {
     const response = await api.get('/network/devices');
     return response.data;
@@ -145,10 +196,8 @@ class ApiService {
       : '/devices/available-ips';
     
     const response = await api.get(url);
-    // Extrai apenas os IPs
     return response.data.available.map((item: any) => item.ip);
   }
-
 
   async updateNetworkDevice(id: number, data: {
     hostname?: string;
@@ -165,13 +214,11 @@ class ApiService {
     return response.data;
   }
 
-  // Busca de dispositivos
   async searchNetworkDevices(query: string, type: 'all' | 'ip' | 'hostname' | 'mac' = 'all'): Promise<NetworkDevice[]> {
     const response = await api.get(`/network/search?query=${encodeURIComponent(query)}&type=${type}`);
     return response.data;
   }
 
-  // Testes de conectividade
   async pingDevice(ip: string): Promise<PingResult> {
     const response = await api.post(`/network/ping/${ip}`);
     return response.data;
@@ -197,7 +244,6 @@ class ApiService {
     return response.data;
   }
 
-  // Monitoramento contínuo
   async startMonitoring(interval: number = 10): Promise<{ success: boolean; message: string }> {
     const response = await api.post('/network/monitoring/start', { interval });
     return response.data;
@@ -213,7 +259,6 @@ class ApiService {
     return response.data;
   }
 
-  // Estatísticas e relatórios
   async getNetworkStats(): Promise<NetworkStats> {
     const response = await api.get('/network/stats');
     return response.data;
@@ -229,7 +274,6 @@ class ApiService {
     return response.data;
   }
 
-  // Exportação de dados
   async exportNetworkData(format: 'json' | 'csv' | 'xlsx' = 'json'): Promise<any> {
     const response = await api.get(`/network/export?format=${format}`, {
       responseType: format === 'xlsx' ? 'blob' : 'json'
@@ -237,7 +281,6 @@ class ApiService {
     return response.data;
   }
 
-  // Comandos remotos (use com cuidado!)
   async executeRemoteCommand(data: {
     ip: string;
     command: string;
@@ -248,7 +291,6 @@ class ApiService {
     return response.data;
   }
 
-  // SNMP
   async snmpWalk(ip: string, data: {
     community?: string;
     oid?: string;
@@ -257,7 +299,6 @@ class ApiService {
     return response.data;
   }
 
-  // Monitoramento de largura de banda
   async getBandwidthStats(networkInterface?: string): Promise<BandwidthResult> {
     const endpoint = networkInterface 
       ? `/network/bandwidth/${networkInterface}` 
@@ -265,7 +306,7 @@ class ApiService {
     const response = await api.get(endpoint);
     return response.data;
   }
-// ========== SWITCHES ==========
+
   async getSwitches(): Promise<Switch[]> {
     const response = await api.get('/switches');
     return response.data;
@@ -286,7 +327,6 @@ class ApiService {
     return response.data;
   }
 
-  // ========== RACKS ==========
   async getRacks(): Promise<Rack[]> {
     const response = await api.get('/racks');
     return response.data;
@@ -306,9 +346,7 @@ class ApiService {
     const response = await api.delete(`/racks/${id}`);
     return response.data;
   }
-  // ========== MÉTODOS AUXILIARES ==========
-  
-  // Download de arquivos exportados
+
   async downloadExportedFile(format: 'xlsx' | 'csv' = 'xlsx', filename: string = 'network_devices'): Promise<void> {
     try {
       const response = await api.get(`/network/export?format=${format}`, {
@@ -330,7 +368,6 @@ class ApiService {
     }
   }
 
-  // Verificar múltiplos IPs
   async pingMultipleDevices(ips: string[]): Promise<PingResult[]> {
     const promises = ips.map(ip => this.pingDevice(ip));
     const results = await Promise.allSettled(promises);
@@ -352,7 +389,6 @@ class ApiService {
     });
   }
 
-  // Scan completo de dispositivo
   async fullDeviceScan(ip: string): Promise<{
     ping: PingResult;
     ports: PortScanResult;
@@ -379,7 +415,6 @@ class ApiService {
     }
   }
 
-  // Utilitários de validação
   isValidIP(ip: string): boolean {
     const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipRegex.test(ip);
@@ -390,7 +425,6 @@ class ApiService {
     return macRegex.test(mac);
   }
 
-  // Formatação de dados
   formatResponseTime(time: number | null): string {
     if (!time) return 'N/A';
     return `${time}ms`;
@@ -429,6 +463,7 @@ export const {
   getPrinters,
   updatePrinter,
   getBoxes,
+  updateBox,
   getTasks,
   createTask,
   updateTask,
@@ -470,6 +505,5 @@ export const {
   isValidMAC,
   formatResponseTime,
   formatLastSeen,
-  formatBytes,
-  updatedBox
+  formatBytes
 } = apiService;

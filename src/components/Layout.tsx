@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { 
   Menu, X, LayoutGrid, Router, Printer, Box, Moon, Sun, CheckSquare, Settings, Home, Network
 } from 'lucide-react'
-import { useAuthStore } from '../store/auth'
-import { useTheme } from '../contexts/theme'
+import { useAuthStore } from '@/store/auth'
+import { useTheme } from '@/contexts/theme'
 import { HeaderDropdowns } from './PopUp'
-import { useNavigationStore } from '../store/navigation'
+import { useNavigationStore } from '@/store/navigation'
 import React from 'react'
-import {NavigationItem, NavLinkProps} from '../types'
+import {NavigationItem, NavLinkProps} from '@/types'
 
 interface ExtendedNavLinkProps extends NavLinkProps {
   index?: number;
@@ -21,7 +21,9 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   { name: 'Tarefas', href: 'tasks', icon: CheckSquare },
   { name: 'Caixas', href: 'boxes', icon: Box },
   { name: 'Switches', href: 'switches', icon: Network },
+  { name: 'Salas', href: 'room', icon: Box },
   { name: 'Configurações', href: 'settings', icon: Settings },
+  
 ]
 
 const Logo = () => (
@@ -175,7 +177,7 @@ const Header = (props: {
 }
 
 const MainContent = ({ children }: { children?: React.ReactNode }) => (
-  <main className="pt-24 px-4 lg:px-6 min-h-screen lg:ml-80 ">
+  <main className="pt-24 px-4 lg:px-6 min-h-screen lg:ml-80 rounded-3xl">
     <div className="p-4 lg:p-6 h-full overflow-auto">
       {children}
     </div>

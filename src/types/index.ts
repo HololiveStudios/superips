@@ -3,199 +3,6 @@ import { Page } from "../store/navigation";
 export type DeviceStatus = 0 | 1;
 export type DeviceType = 'Computador' | 'Impressora' | 'Roteador' | 'Balança' | 'Switch' | 'Access Point' | 'Servidor' | 'Firewall' | 'NAS' | 'Camera IP' | 'Telefone IP' | 'Outro';
 
-export interface NetworkDevice {
-  id: number;
-  ip: string;
-  hostname: string | null;
-  mac_address: string | null;
-  vendor: string | null;
-  os_info: string | null;
-  device_type: DeviceType | null;
-  response_time: number | null;
-  last_seen: string;
-  status: DeviceStatus;
-  open_ports?: number[];
-  services?: string[];
-  open_ports_count?: number;
-  services_count?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface NetworkDeviceDetails {
-  device: NetworkDevice;
-  ports: DevicePort[];
-  services: DeviceService[];
-  shares: NetworkShare[];
-  history: MonitoringHistory[];
-}
-
-export interface DevicePort {
-  id: number;
-  device_id: number;
-  port: number;
-  service_name: string;
-  protocol: 'TCP' | 'UDP';
-  status: 'open' | 'closed' | 'filtered';
-  created_at: string;
-}
-
-export interface DeviceService {
-  id: number;
-  device_id: number;
-  service_name: string;
-  port: number;
-  protocol: 'TCP' | 'UDP';
-  version: string | null;
-  status: 'active' | 'inactive' | 'unknown';
-  created_at: string;
-}
-
-export interface NetworkShare {
-  id: number;
-  device_id: number;
-  share_name: string;
-  share_type: string;
-  path: string | null;
-  permissions: string | null;
-  status: 'active' | 'inactive';
-  created_at: string;
-}
-
-export interface MonitoringHistory {
-  id: number;
-  device_id: number;
-  response_time: number;
-  status: DeviceStatus;
-  cpu_usage: number | null;
-  memory_usage: number | null;
-  disk_usage: number | null;
-  network_in: number | null;
-  network_out: number | null;
-  timestamp: string;
-}
-
-export interface PingResult {
-  ip: string;
-  alive: boolean;
-  time: number;
-  min: number;
-  max: number;
-  avg: number;
-  packetLoss: string;
-}
-
-export interface PortScanResult {
-  ip: string;
-  scanned_ports: number[];
-  open_ports: number[];
-  services: ServiceInfo[];
-}
-
-export interface ServiceInfo {
-  port: number;
-  service: string;
-  protocol: 'TCP' | 'UDP';
-}
-
-export interface NetworkStats {
-  overview: {
-    total_devices: number;
-    online_devices: number;
-    offline_devices: number;
-    different_os: number;
-    different_vendors: number;
-  };
-  top_services: {
-    service_name: string;
-    count: number;
-  }[];
-  os_distribution: {
-    os_info: string;
-    count: number;
-  }[];
-  vendor_distribution: {
-    vendor: string;
-    count: number;
-  }[];
-}
-
-export interface NetworkAlerts {
-  offline_devices: NetworkDevice[];
-  slow_devices: NetworkDevice[];
-  suspicious_ports: {
-    ip: string;
-    hostname: string;
-    port: number;
-    service_name: string;
-  }[];
-  timestamp: string;
-}
-
-export interface DiscoveryResult {
-  success: boolean;
-  discovered: number;
-  devices: NetworkDevice[];
-}
-
-export interface MonitoringStatus {
-  monitoring_active: boolean;
-  last_scan: string;
-}
-
-export interface SharesResult {
-  ip: string;
-  shares: {
-    name: string;
-    type: string;
-    comment: string;
-  }[];
-}
-
-export interface TracerouteResult {
-  target_ip: string;
-  hops: {
-    hop: number;
-    ip: string;
-    rtt1: string;
-    rtt2: string;
-    rtt3: string;
-  }[];
-  total_hops: number;
-}
-
-export interface BandwidthResult {
-  interfaces: {
-    interface: string;
-    bytes_received: number;
-    packets_received: number;
-    bytes_sent: number;
-    packets_sent: number;
-    timestamp: string;
-  }[];
-  timestamp: string;
-}
-
-export interface RemoteCommandResult {
-  ip: string;
-  command: string;
-  output?: string;
-  error?: string;
-  success: boolean;
-  executed_at: string;
-}
-
-export interface SnmpResult {
-  ip: string;
-  community: string;
-  oid: string;
-  results: {
-    oid: string;
-    value: string;
-  }[];
-  success: boolean;
-}
-
 export interface Device {
   id: number;
   ip: string;
@@ -213,7 +20,7 @@ export interface Device {
 export interface Router extends Device {
   login_username: string;
   login_password: string;
-  wifi_ssid: string;
+  wifi_ssid: number;
   wifi_password: string;
   hidden: number;
 }
@@ -252,6 +59,61 @@ export interface User {
   username: string;
   token?: string;
 }
+
+
+
+export interface Room {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  floor: number;
+  created_at?: string;
+  updated_at?: string;
+  device_count?: number;
+}
+
+export interface DevicePosition extends Device {
+  id: number;
+  device_id: number;
+  room_id: number;
+  x: number;
+  y: number;
+  created_at?: string;
+  updated_at?: string;
+  device_name?: string;
+  room_name?: string;
+  floor?: number;
+}
+
+export interface MapData {
+  rooms: Room[];
+  devices: Device[];
+  sectors: string[];
+  device_types: string[];
+}
+
+export interface PositionUpdate {
+  device_id: number;
+  room_id: number;
+  x: number;
+  y: number;
+}
+
+export interface RoomPositionUpdate {
+  x: number;
+  y: number;
+}
+
+export type AvailableDevice = {
+  ip: string;
+  name: string;
+  status: number;
+  reason: string;
+};
+
 
 export interface RDPCheckResult {
   ip: string;
@@ -305,7 +167,7 @@ export interface SuspiciousPortAlert {
 }
 
 export interface SnmpValue {
-  oid: string;
+  oid: number;
   value: string;
 }
 
@@ -547,4 +409,280 @@ export interface NavLinkProps {
   item: NavigationItem
   mobile?: boolean
   onClick?: () => void
+}
+
+export interface MapDevice extends Device {
+  x: number;
+  y: number;
+  icon?: string; // Pode ser determinado pelo tipo
+}
+
+export interface NetworkDevice {
+  id: number;
+  ip: string;
+  hostname: string | null;
+  mac_address: string | null;
+  vendor: string | null;
+  os_info: string | null;
+  device_type: DeviceType | null;
+  response_time: number | null;
+  last_seen: string;
+  status: DeviceStatus;
+  open_ports?: number[];
+  services?: string[];
+  open_ports_count?: number;
+  services_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NetworkDeviceDetails {
+  device: NetworkDevice;
+  ports: DevicePort[];
+  services: DeviceService[];
+  shares: NetworkShare[];
+  history: MonitoringHistory[];
+}
+
+export interface DevicePort {
+  id: number;
+  device_id: number;
+  port: number;
+  service_name: string;
+  protocol: 'TCP' | 'UDP';
+  status: 'open' | 'closed' | 'filtered';
+  created_at: string;
+}
+
+export interface DeviceService {
+  id: number;
+  device_id: number;
+  service_name: string;
+  port: number;
+  protocol: 'TCP' | 'UDP';
+  version: string | null;
+  status: 'active' | 'inactive' | 'unknown';
+  created_at: string;
+}
+
+export interface NetworkShare {
+  id: number;
+  device_id: number;
+  share_name: string;
+  share_type: string;
+  path: string | null;
+  permissions: string | null;
+  status: 'active' | 'inactive';
+  created_at: string;
+}
+
+export interface MonitoringHistory {
+  id: number;
+  device_id: number;
+  response_time: number;
+  status: DeviceStatus;
+  cpu_usage: number | null;
+  memory_usage: number | null;
+  disk_usage: number | null;
+  network_in: number | null;
+  network_out: number | null;
+  timestamp: string;
+}
+
+export interface PingResult {
+  ip: string;
+  alive: boolean;
+  time: number;
+  min: number;
+  max: number;
+  avg: number;
+  packetLoss: string;
+}
+
+export interface PortScanResult {
+  ip: string;
+  scanned_ports: number[];
+  open_ports: number[];
+  services: ServiceInfo[];
+}
+
+export interface ServiceInfo {
+  port: number;
+  service: string;
+  protocol: 'TCP' | 'UDP';
+}
+
+export interface NetworkStats {
+  overview: {
+    total_devices: number;
+    online_devices: number;
+    offline_devices: number;
+    different_os: number;
+    different_vendors: number;
+  };
+  top_services: {
+    service_name: string;
+    count: number;
+  }[];
+  os_distribution: {
+    os_info: string;
+    count: number;
+  }[];
+  vendor_distribution: {
+    vendor: string;
+    count: number;
+  }[];
+}
+
+export interface NetworkAlerts {
+  offline_devices: NetworkDevice[];
+  slow_devices: NetworkDevice[];
+  suspicious_ports: {
+    ip: string;
+    hostname: string;
+    port: number;
+    service_name: string;
+  }[];
+  timestamp: string;
+}
+
+export interface DiscoveryResult {
+  success: boolean;
+  discovered: number;
+  devices: NetworkDevice[];
+}
+
+export interface MonitoringStatus {
+  monitoring_active: boolean;
+  last_scan: string;
+}
+
+export interface SharesResult {
+  ip: string;
+  shares: {
+    name: string;
+    type: string;
+    comment: string;
+  }[];
+}
+
+export interface TracerouteResult {
+  target_ip: string;
+  hops: {
+    hop: number;
+    ip: string;
+    rtt1: string;
+    rtt2: string;
+    rtt3: string;
+  }[];
+  total_hops: number;
+}
+
+export interface BandwidthResult {
+  interfaces: {
+    interface: string;
+    bytes_received: number;
+    packets_received: number;
+    bytes_sent: number;
+    packets_sent: number;
+    timestamp: string;
+  }[];
+  timestamp: string;
+}
+
+export interface RemoteCommandResult {
+  ip: string;
+  command: string;
+  output?: string;
+  error?: string;
+  success: boolean;
+  executed_at: string;
+}
+
+export interface SnmpResult {
+  ip: string;
+  community: string;
+  oid: number;
+  results: {
+    oid: number;
+    value: string;
+  }[];
+  success: boolean;
+}
+
+export interface AvailableDevicesResponse {
+  available: AvailableDevice[];
+}
+
+export interface CreateRoomPayload {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  floor: number;
+}
+
+export interface UpdateRoomPayload {
+  name?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  floor?: number;
+}
+
+export interface CreateDevicePositionPayload {
+  device_id: number;
+  room_id: number;
+  x: number;
+  y: number;
+}
+
+export interface UpdateDevicePositionPayload {
+  device_id?: number;
+  room_id?: string;
+  x?: number;
+  y?: number;
+}
+
+export interface DeleteDevicePositionPayload {
+  device_id: number;
+  room_id: number;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface RegisterCredentials {
+  username: string;
+  password: string;
+  confirm_password: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+  confirm_new_password: string;
+}
+
+export interface UpdateUserPayload {
+  username?: string;
+  // Outros campos que podem ser atualizados
+}
+
+export interface DeleteUserPayload {
+  user_id: number;
+}
+
+export interface NavigationStore {
+  currentPage: Page;
+  setPage: (page: Page) => void;
 }

@@ -9,7 +9,8 @@ export type Page =
   | 'tasks'
   | 'settings'
   | 'switches'
-  | 'sheet';
+  | 'sheet'
+  | 'room';
 
 interface NavigationState {
   currentPage: Page;

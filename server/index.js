@@ -856,6 +856,288 @@ app.delete('/api/devices/:id', async (req, res) => {
   }
 });
 
+// ========== ROOMS API ==========
+app.get('/api/rooms', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        r.*,
+        COUNT(dp.device_id) as device_count
+      FROM rooms r
+      LEFT JOIN device_positions dp ON r.id = dp.room_id
+      GROUP BY r.id
+      ORDER BY r.floor, r.name
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/rooms', async (req, res) => {
+  try {
+    const { name, x, y, width, height, floor } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Nome da sala é obrigatório' });
+    }
+
+    const result = await db.query(`
+      INSERT INTO rooms (name, x, y, width, height, floor) 
+      VALUES ($1, $2, $3, $4, $5, $6) 
+      RETURNING *
+    `, [name, x || 50, y || 50, width || 250, height || 180, floor || 1]);
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/rooms/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, x, y, width, height, floor } = req.body;
+    
+    const result = await db.query(`
+      UPDATE rooms 
+      SET name = COALESCE($2, name),
+          x = COALESCE($3, x),
+          y = COALESCE($4, y),
+          width = COALESCE($5, width),
+          height = COALESCE($6, height),
+          floor = COALESCE($7, floor),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 
+      RETURNING *
+    `, [id, name, x, y, width, height, floor]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Sala não encontrada' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/rooms/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await db.query('DELETE FROM rooms WHERE id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Sala não encontrada' });
+    }
+    
+    res.json({ message: 'Sala removida com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== DEVICE POSITIONS API ==========
+app.get('/api/device-positions', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        dp.*,
+        d.ip,
+        d.name as device_name,
+        d.type,
+        d.user,
+        d.sector,
+        d.status,
+        d.online,
+        r.name as room_name,
+        r.floor
+      FROM device_positions dp
+      LEFT JOIN devices d ON dp.device_id = d.id
+      LEFT JOIN rooms r ON dp.room_id = r.id
+      ORDER BY r.floor, r.name, d.name
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/device-positions', async (req, res) => {
+  try {
+    const { device_id, room_id, x, y } = req.body;
+    
+    if (!device_id || !room_id) {
+      return res.status(400).json({ error: 'device_id e room_id são obrigatórios' });
+    }
+
+    const result = await db.query(`
+      INSERT INTO device_positions (device_id, room_id, x, y) 
+      VALUES ($1, $2, $3, $4) 
+      ON CONFLICT (device_id) 
+      DO UPDATE SET 
+        room_id = EXCLUDED.room_id,
+        x = EXCLUDED.x,
+        y = EXCLUDED.y,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [device_id, room_id, x || 0, y || 0]);
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/device-positions/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { room_id, x, y } = req.body;
+    
+    const result = await db.query(`
+      UPDATE device_positions 
+      SET room_id = COALESCE($2, room_id),
+          x = COALESCE($3, x),
+          y = COALESCE($4, y),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE device_id = $1 
+      RETURNING *
+    `, [deviceId, room_id, x, y]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Posição do dispositivo não encontrada' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/device-positions/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    
+    const result = await db.query('DELETE FROM device_positions WHERE device_id = $1 RETURNING *', [deviceId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Posição do dispositivo não encontrada' });
+    }
+    
+    res.json({ message: 'Posição do dispositivo removida com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/map-data', async (req, res) => {
+  try {
+    const { floor } = req.query;
+    
+    let roomsQuery = 'SELECT * FROM rooms ORDER BY id';
+    let roomsParams = [];
+    
+    if (floor) {
+      roomsQuery = 'SELECT * FROM rooms WHERE floor = $1 ORDER BY name';
+      roomsParams = [floor];
+    }
+    
+    const [roomsResult, devicesResult, positionsResult] = await Promise.all([
+      db.query(roomsQuery, roomsParams),
+      db.query('SELECT * FROM devices ORDER BY id'),
+      db.query(`
+        SELECT 
+          dp.*,
+          r.floor
+        FROM device_positions dp
+        LEFT JOIN rooms r ON dp.room_id = r.id
+        ${floor ? 'WHERE r.floor = $1' : ''}
+      `, floor ? [floor] : [])
+    ]);
+
+    const spacing = 80; // espaço entre dispositivos
+    const cols = 5;     // quantos por linha antes de quebrar
+
+    const devicesWithPositions = devicesResult.rows
+      .map((device, index) => {
+        const position = positionsResult.rows.find(p => p.device_id === device.id);
+
+        let x, y;
+
+        if (position) {
+          x = position.x;
+          y = position.y;
+        } else {
+          // Gera posição em grade para não sobrepor
+          x = 50 + (index % cols) * spacing;
+          y = 50 + Math.floor(index / cols) * spacing;
+        }
+
+        return {
+          ...device,
+          room_id: position?.room_id || null,
+          x,
+          y,
+          status: Number(device.status) === 1 ? 1 : 0
+        };
+      })
+      .filter(device => device.ip.startsWith('10.0.11.'));
+
+    res.json({
+      rooms: roomsResult.rows,
+      devices: devicesWithPositions,
+      sectors: [...new Set(devicesResult.rows.map(d => d.sector).filter(Boolean))],
+      device_types: [...new Set(devicesResult.rows.map(d => d.type).filter(Boolean))]
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== BATCH UPDATE POSITIONS ==========
+app.post('/api/device-positions/batch', async (req, res) => {
+  try {
+    const { positions } = req.body;
+    
+    if (!Array.isArray(positions)) {
+      return res.status(400).json({ error: 'positions deve ser um array' });
+    }
+
+    const client = await db.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      for (const pos of positions) {
+        const { device_id, room_id, x, y } = pos;
+        
+        await client.query(`
+          INSERT INTO device_positions (device_id, room_id, x, y) 
+          VALUES ($1, $2, $3, $4) 
+          ON CONFLICT (device_id) 
+          DO UPDATE SET 
+            room_id = EXCLUDED.room_id,
+            x = EXCLUDED.x,
+            y = EXCLUDED.y,
+            updated_at = CURRENT_TIMESTAMP
+        `, [device_id, room_id, x, y]);
+      }
+      
+      await client.query('COMMIT');
+      res.json({ success: true, updated: positions.length });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/devices/import', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
 
