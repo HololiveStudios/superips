@@ -874,40 +874,24 @@ app.get('/api/rooms', async (req, res) => {
   }
 });
 
-app.post('/api/rooms', async (req, res) => {
-  try {
-    const { name, x, y, width, height, floor } = req.body;
-    
-    if (!name) {
-      return res.status(400).json({ error: 'Nome da sala é obrigatório' });
-    }
-
-    const result = await db.query(`
-      INSERT INTO rooms (name, x, y, width, height, floor) 
-      VALUES ($1, $2, $3, $4, $5, $6) 
-      RETURNING *
-    `, [name, x || 50, y || 50, width || 250, height || 180, floor || 1]);
-    
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// ========== CORREÇÃO DA API DE ROOMS ==========
 app.put('/api/rooms/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, x, y, width, height, floor } = req.body;
     
+    console.log('Atualizando sala:', { id, name, x, y, width, height, floor }); // Debug
+    
     const result = await db.query(`
       UPDATE rooms 
-      SET name = COALESCE($2, name),
-          x = COALESCE($3, x),
-          y = COALESCE($4, y),
-          width = COALESCE($5, width),
-          height = COALESCE($6, height),
-          floor = COALESCE($7, floor),
-          updated_at = CURRENT_TIMESTAMP
+      SET 
+        name = COALESCE($2, name),
+        x = CASE WHEN $3 IS NOT NULL THEN $3 ELSE x END,
+        y = CASE WHEN $4 IS NOT NULL THEN $4 ELSE y END,
+        width = CASE WHEN $5 IS NOT NULL THEN $5 ELSE width END,
+        height = CASE WHEN $6 IS NOT NULL THEN $6 ELSE height END,
+        floor = COALESCE($7, floor),
+        updated_at = CURRENT_TIMESTAMP
       WHERE id = $1 
       RETURNING *
     `, [id, name, x, y, width, height, floor]);
@@ -916,8 +900,39 @@ app.put('/api/rooms/:id', async (req, res) => {
       return res.status(404).json({ error: 'Sala não encontrada' });
     }
     
+    console.log('Sala atualizada:', result.rows[0]); // Debug
     res.json(result.rows[0]);
   } catch (error) {
+    console.error('Erro ao atualizar sala:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== CORREÇÃO DA API GET /api/rooms ==========
+app.get('/api/rooms', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT 
+        r.id,
+        r.name,
+        COALESCE(r.x, 100) as x,
+        COALESCE(r.y, 100) as y,
+        COALESCE(r.width, 300) as width,
+        COALESCE(r.height, 200) as height,
+        COALESCE(r.floor, 1) as floor,
+        r.created_at,
+        r.updated_at,
+        COUNT(dp.device_id) as device_count
+      FROM rooms r
+      LEFT JOIN device_positions dp ON r.id = dp.room_id
+      GROUP BY r.id, r.name, r.x, r.y, r.width, r.height, r.floor, r.created_at, r.updated_at
+      ORDER BY r.floor, r.name
+    `);
+    
+    console.log('Salas carregadas:', result.rows); // Debug
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao buscar salas:', error);
     res.status(500).json({ error: error.message });
   }
 });

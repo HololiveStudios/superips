@@ -1,0 +1,80 @@
+# Nmap 7.93 scan initiated Thu Sep 18 20:14:46 2025 as: nmap -sV -sC -p 950 -Pn -T4 -oA scan_10.0.11.9_950 10.0.11.9
+Nmap scan report for 10.0.11.9
+Host is up (0.00076s latency).
+
+PORT    STATE SERVICE    VERSION
+950/tcp open  oftep-rpc?
+| fingerprint-strings: 
+|   DNSVersionBindReqTCP: 
+|     @F<68>Sep 18 20:15:24 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:24 syslog: validator: resync made! i == 31 G
+|   GetRequest: 
+|     @F<68>Sep 18 20:15:04 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:04 syslog: validator: resync made! i == 17 I
+|   HTTPOptions: 
+|     @F<68>Sep 18 20:15:09 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:09 syslog: validator: resync made! i == 21 I
+|   Help: 
+|     @F<67>Sep 18 20:15:34 syslog: connection: got new connection 10.0.11.150
+|     @F<68>Sep 18 20:15:34 syslog: validator: connected, cmParams.cmMode = 2 
+|     @;<68>Sep 18 20:15:34 syslog: validator: resync made! i == 5
+|   Kerberos: 
+|     @F<68>Sep 18 20:15:56 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:56 syslog: validator: resync made! i == 12 K
+|     @N<68>Sep 18 20:15:56 syslog: validator: chksum failed calc BA = real A4 len =9 \x02@<<68>Sep 18 20:15:56 syslog: validator: resync made! i == 25 O
+|     @N<68>Sep 18 20:15:56 syslog: validator: chksum failed calc 03 = real A1 len =4 4
+|     @<<68>Sep 18 20:15:56 syslog: validator: resync made! i == 46 R
+|   RTSPRequest: 
+|     @F<68>Sep 18 20:15:14 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:14 syslog: validator: resync made! i == 21 E
+|   SSLSessionReq: 
+|     @F<68>Sep 18 20:15:41 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:41 syslog: validator: resync made! i == 87 Q
+|   TLSSessionReq: 
+|     @F<68>Sep 18 20:15:51 syslog: validator: connected, cmParams.cmMode = 2 
+|     @<<68>Sep 18 20:15:51 syslog: validator: resync made! i == 79 S
+|   TerminalServerCookie: 
+|     @F<68>Sep 18 20:15:46 syslog: validator: connected, cmParams.cmMode = 2 
+|_    @<<68>Sep 18 20:15:46 syslog: validator: resync made! i == 41 L
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port950-TCP:V=7.93%I=7%D=9/18%Time=68CC684D%P=x86_64-pc-linux-gnu%r(Get
+SF:Request,8A,"\x02@F<68>Sep\x2018\x2020:15:04\x20syslog:\x20validator:\x2
+SF:0connected,\x20cmParams\.cmMode\x20=\x202\x20\xa1\x02@<<68>Sep\x2018\x2
+SF:020:15:04\x20syslog:\x20validator:\x20resync\x20made!\x20i\x20==\x2017\
+SF:x20I")%r(HTTPOptions,8A,"\x02@F<68>Sep\x2018\x2020:15:09\x20syslog:\x20
+SF:validator:\x20connected,\x20cmParams\.cmMode\x20=\x202\x20\xa6\x02@<<68
+SF:>Sep\x2018\x2020:15:09\x20syslog:\x20validator:\x20resync\x20made!\x20i
+SF:\x20==\x2021\x20I")%r(RTSPRequest,8A,"\x02@F<68>Sep\x2018\x2020:15:14\x
+SF:20syslog:\x20validator:\x20connected,\x20cmParams\.cmMode\x20=\x202\x20
+SF:\xa2\x02@<<68>Sep\x2018\x2020:15:14\x20syslog:\x20validator:\x20resync\
+SF:x20made!\x20i\x20==\x2021\x20E")%r(DNSVersionBindReqTCP,8A,"\x02@F<68>S
+SF:ep\x2018\x2020:15:24\x20syslog:\x20validator:\x20connected,\x20cmParams
+SF:\.cmMode\x20=\x202\x20\xa3\x02@<<68>Sep\x2018\x2020:15:24\x20syslog:\x2
+SF:0validator:\x20resync\x20made!\x20i\x20==\x2031\x20G")%r(Help,D3,"\x02@
+SF:F<67>Sep\x2018\x2020:15:34\x20syslog:\x20connection:\x20got\x20new\x20c
+SF:onnection\x2010\.0\.11\.150\xbf\x02@F<68>Sep\x2018\x2020:15:34\x20syslo
+SF:g:\x20validator:\x20connected,\x20cmParams\.cmMode\x20=\x202\x20\xa4\x0
+SF:2@;<68>Sep\x2018\x2020:15:34\x20syslog:\x20validator:\x20resync\x20made
+SF:!\x20i\x20==\x205\x20\x18")%r(SSLSessionReq,8A,"\x02@F<68>Sep\x2018\x20
+SF:20:15:41\x20syslog:\x20validator:\x20connected,\x20cmParams\.cmMode\x20
+SF:=\x202\x20\xa2\x02@<<68>Sep\x2018\x2020:15:41\x20syslog:\x20validator:\
+SF:x20resync\x20made!\x20i\x20==\x2087\x20Q")%r(TerminalServerCookie,8A,"\
+SF:x02@F<68>Sep\x2018\x2020:15:46\x20syslog:\x20validator:\x20connected,\x
+SF:20cmParams\.cmMode\x20=\x202\x20\xa7\x02@<<68>Sep\x2018\x2020:15:46\x20
+SF:syslog:\x20validator:\x20resync\x20made!\x20i\x20==\x2041\x20L")%r(TLSS
+SF:essionReq,8A,"\x02@F<68>Sep\x2018\x2020:15:51\x20syslog:\x20validator:\
+SF:x20connected,\x20cmParams\.cmMode\x20=\x202\x20\xa3\x02@<<68>Sep\x2018\
+SF:x2020:15:51\x20syslog:\x20validator:\x20resync\x20made!\x20i\x20==\x207
+SF:9\x20S")%r(Kerberos,1AE,"\x02@F<68>Sep\x2018\x2020:15:56\x20syslog:\x20
+SF:validator:\x20connected,\x20cmParams\.cmMode\x20=\x202\x20\xa8\x02@<<68
+SF:>Sep\x2018\x2020:15:56\x20syslog:\x20validator:\x20resync\x20made!\x20i
+SF:\x20==\x2012\x20K\x02@N<68>Sep\x2018\x2020:15:56\x20syslog:\x20validato
+SF:r:\x20chksum\x20failed\x20calc\x20BA\x20=\x20real\x20A4\x20len\x20=9\x2
+SF:0\\\x02@<<68>Sep\x2018\x2020:15:56\x20syslog:\x20validator:\x20resync\x
+SF:20made!\x20i\x20==\x2025\x20O\x02@N<68>Sep\x2018\x2020:15:56\x20syslog:
+SF:\x20validator:\x20chksum\x20failed\x20calc\x2003\x20=\x20real\x20A1\x20
+SF:len\x20=4\x204\x02@<<68>Sep\x2018\x2020:15:56\x20syslog:\x20validator:\
+SF:x20resync\x20made!\x20i\x20==\x2046\x20R");
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+# Nmap done at Thu Sep 18 20:17:30 2025 -- 1 IP address (1 host up) scanned in 164.11 seconds

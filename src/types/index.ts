@@ -14,6 +14,9 @@ export interface Device {
   online?: DeviceStatus;
   created_at?: string;
   updated_at?: string;
+  room_id?: number | null;
+  x?: number | null;       // ✅ Permitir null do banco
+  y?: number | null; 
   [key: string]: any;
 }
 
@@ -65,10 +68,10 @@ export interface User {
 export interface Room {
   id: number;
   name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  x?: number | null;       // ✅ Permitir null do banco
+  y?: number | null;       // ✅ Permitir null do banco
+  width?: number | null;   // ✅ Permitir null do banco
+  height?: number | null;  // ✅ Permitir null do banco
   floor: number;
   created_at?: string;
   updated_at?: string;
@@ -79,8 +82,8 @@ export interface DevicePosition extends Device {
   id: number;
   device_id: number;
   room_id: number;
-  x: number;
-  y: number;
+  x?: number | null;       // ✅ Permitir null do banco
+  y?: number | null;       // ✅ Permitir null do banco
   created_at?: string;
   updated_at?: string;
   device_name?: string;
@@ -90,9 +93,16 @@ export interface DevicePosition extends Device {
 
 export interface MapData {
   rooms: Room[];
-  devices: Device[];
+  devices: DevicePosition[];
   sectors: string[];
   device_types: string[];
+}
+
+export interface PositionData {
+  device_id: number;
+  room_id: number;
+  x: number;
+  y: number;
 }
 
 export interface PositionUpdate {

@@ -1,0 +1,4 @@
+# Nmap 7.93 scan initiated Thu Sep 18 20:14:46 2025 as: nmap -sV -sC -p 950 -Pn -T4 -oA scan_10.0.11.9_950 10.0.11.9
+Host: 10.0.11.9 ()	Status: Up
+Host: 10.0.11.9 ()	Ports: 950/open/tcp//oftep-rpc?///
+# Nmap done at Thu Sep 18 20:17:30 2025 -- 1 IP address (1 host up) scanned in 164.11 seconds

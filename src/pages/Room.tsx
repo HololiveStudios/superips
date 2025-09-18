@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
   Activity, 
   Power, 
@@ -12,10 +12,7 @@ import {
   Move,
   Eye,
   EyeOff,
-  Loader2,
-  Save,
   RefreshCw,
-  Filter,
   MapPin,
   Network,
   Building,
@@ -23,13 +20,99 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
-import type { Device, Room, MapData} from '@/types';
-import { apiService } from '@/services/api';
 
+interface Device {
+  id: number;
+  ip: string;
+  name?: string;
+  type: string;
+  user?: string;
+  sector: string;
+  status: number;
+  room_id?: number | null;
+  x?: number | null;
+  y?: number | null;
+}
+
+interface Room {
+  id: number;
+  name: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
+interface DevicePosition {
+  id: number;
+  device_id: number;
+  room_id: number;
+  x: number;
+  y: number;
+}
+
+interface PositionData {
+  device_id: number;
+  room_id: number;
+  x: number;
+  y: number;
+}
+
+const apiService = {
+  async getDevices(): Promise<Device[]> {
+    const response = await fetch('http://10.0.11.150:5173/api/devices');
+    return response.json();
+  },
+  
+  async getRooms(): Promise<Room[]> {
+    const response = await fetch('http://10.0.11.150:5173/api/rooms');
+    return response.json();
+  },
+  
+  async getDevicePositions(): Promise<DevicePosition[]> {
+    const response = await fetch('http://10.0.11.150:5173/api/device-positions');
+    return response.json();
+  },
+  
+  async createInitialPositions(positions: PositionData[]): Promise<{ success: boolean; updated: number }> {
+    const response = await fetch('http://10.0.11.150:5173/api/device-positions/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ positions })
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+  
+  async updateDevicePosition(position: PositionData): Promise<DevicePosition> {
+    const response = await fetch('http://10.0.11.150:5173/api/device-positions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(position)
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  },
+  
+  async updateRoom(id: number, roomData: Partial<Room>): Promise<Room> {
+    const response = await fetch(`http://10.0.11.150:5173/api/rooms/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(roomData)
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+  }
+};
 
 const showToast = (title: string, message?: string, variant?: 'destructive'): void => {
   console.log(`Toast: ${title}${message ? ` - ${message}` : ''}${variant ? ` (${variant})` : ''}`);
-  
   if (variant === 'destructive') {
     console.error(`Error: ${title}${message ? ` - ${message}` : ''}`);
   }
@@ -102,69 +185,181 @@ const CollapsibleSection: React.FC<{
 };
 
 export default function NetworkMapViewer() {
-  const [mapData, setMapData] = useState<MapData>({
-    rooms: [],
-    devices: [],
-    sectors: [],
-    device_types: []
-  });
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
-  const [mode, setMode] = useState<'view' | 'move'>('view');
+  const [mode, setMode] = useState<'view' | 'move' | 'edit'>('view');
   const [filterType, setFilterType] = useState<string>('');
   const [filterSector, setFilterSector] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showDeviceLabels, setShowDeviceLabels] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadMapData();
+    loadData();
   }, []);
 
-  const loadMapData = async (): Promise<void> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await apiService.getMapData(1);
-      setMapData(data);
-    } catch (error) {
-      console.error('Erro ao carregar dados do mapa:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      setError('Erro ao carregar dados: ' + errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const savePositions = async (): Promise<void> => {
-    try {
-      setIsSaving(true);
-      const positions = mapData.devices
-        .filter(device => device.room_id && device.id != null)
-        .map(device => ({
-          device_id: Number(device.id),
-          room_id: Number(device.room_id),
-          x: device.x || 0,
-          y: device.y || 0
-        }));
+  const generateInitialPositions = (roomDevices: Device[], roomWidth: number = 300): PositionData[] => {
+    const spacing = 60;
+    const marginX = 30;
+    const marginY = 70;
+    const cols = Math.max(1, Math.floor((roomWidth - marginX * 2) / spacing));
+    
+    return roomDevices.map((device: Device, index: number): PositionData => {
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      const x = marginX + col * spacing;
+      const y = marginY + row * spacing;
       
-      if (positions.length > 0) {
-        await apiService.batchUpdatePositions(positions);
-        showToast("Posições salvas", `${positions.length} posições foram salvas com sucesso.`);
-      }
-    } catch (error) {
-      console.error('Erro ao salvar posições:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      showToast("Erro", "Erro ao salvar: " + errorMessage, "destructive");
-    } finally {
-      setIsSaving(false);
-    }
+      return {
+        device_id: device.id,
+        room_id: device.room_id!,
+        x,
+        y
+      };
+    });
   };
 
-  const filteredDevices = mapData.devices.filter(device => {
+const generateInitialRoomPositions = (rooms: Room[]): Room[] => {
+  const roomSpacing = 50;
+  const roomsPerRow = 3;
+  
+  return rooms.map((room: Room, index: number): Room => {
+    // ✅ CORREÇÃO: Verificar null E undefined
+    if (room.x !== null && room.x !== undefined && room.y !== null && room.y !== undefined) {
+      return room;
+    }
+    
+    const row = Math.floor(index / roomsPerRow);
+    const col = index % roomsPerRow;
+    const x = 100 + col * ((room.width || 300) + roomSpacing);
+    const y = 100 + row * ((room.height || 200) + roomSpacing);
+    
+    return { 
+      ...room, 
+      x, 
+      y,
+      width: room.width || 300,
+      height: room.height || 200
+    };
+  });
+};
+
+// 2. Função loadData corrigida
+const loadData = async () => {
+  try {
+    setIsLoading(true);
+    setError(null);
+    
+    console.log('Carregando dados...'); // Debug
+    
+    const [devicesData, roomsData, positionsData] = await Promise.all([
+      apiService.getDevices(),
+      apiService.getRooms(),
+      apiService.getDevicePositions()
+    ]);
+    
+    console.log('Dados das salas recebidos:', roomsData); // Debug
+    
+    // ✅ CORREÇÃO: Garantir que as salas tenham posições válidas
+    const roomsWithPositions = roomsData.map((room: Room) => ({
+      ...room,
+      x: room.x ?? 100,
+      y: room.y ?? 100,
+      width: room.width ?? 300,
+      height: room.height ?? 200
+    }));
+    
+    console.log('Salas com posições processadas:', roomsWithPositions); // Debug
+    
+    const positionsMap: Record<number, DevicePosition> = {};
+    positionsData.forEach((pos: DevicePosition) => {
+      positionsMap[pos.device_id] = pos;
+    });
+    
+    const devicesWithRooms = devicesData.map((device: Device) => {
+      const room = roomsWithPositions.find((r: Room) => r.name === device.sector);
+      const position = positionsMap[device.id];
+      
+      return {
+        ...device,
+        room_id: room?.id || null,
+        x: position?.x ?? null,
+        y: position?.y ?? null
+      } as Device;
+    });
+      
+      const devicesWithoutPosition = devicesWithRooms.filter((d: Device) => 
+        d.room_id !== null && (d.x === null || d.y === null)
+      );
+      
+      if (devicesWithoutPosition.length > 0) {
+        const devicesBySector: Record<string, Device[]> = {};
+        devicesWithoutPosition.forEach((device: Device) => {
+          if (device.sector) {
+            if (!devicesBySector[device.sector]) {
+              devicesBySector[device.sector] = [];
+            }
+            devicesBySector[device.sector].push(device);
+          }
+        });
+        
+        const positionsToCreate: PositionData[] = [];
+        
+        Object.entries(devicesBySector).forEach(([sectorName, roomDevices]) => {
+          const room = roomsWithPositions.find((r: Room) => r.name === sectorName);
+          if (!room) return;
+          
+          const initialPositions = generateInitialPositions(
+            roomDevices, 
+            room.width || 300
+          );
+          
+          positionsToCreate.push(...initialPositions);
+        });
+        
+        if (positionsToCreate.length > 0) {
+          try {
+            await apiService.createInitialPositions(positionsToCreate);
+            
+            positionsToCreate.forEach((pos: PositionData) => {
+              const device = devicesWithRooms.find((d: Device) => d.id === pos.device_id);
+              if (device) {
+                device.x = pos.x;
+                device.y = pos.y;
+              }
+            });
+          } catch (error) {
+            console.error('Erro ao criar posições iniciais:', error);
+            showToast("Aviso", "Erro ao criar posições iniciais dos dispositivos", "destructive");
+          }
+        }
+      }
+
+   setDevices(devicesWithRooms);
+    setRooms(roomsWithPositions);
+    
+    console.log('Salas definidas no state:', roomsWithPositions); // Debug
+    
+  } catch (error: unknown) {
+    console.error('Erro ao carregar dados:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    setError('Erro ao carregar dados: ' + errorMessage);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  const getDeviceRoom = (device: Device): Room | undefined => {
+    return rooms.find((room: Room) => room.name === device.sector);
+  };
+
+  const filteredDevices = devices.filter((device: Device) => {
     const matchesSearch = device.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          device.ip.includes(searchTerm) ||
                          device.user?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -173,48 +368,156 @@ export default function NetworkMapViewer() {
     return matchesSearch && matchesType && matchesSector;
   });
 
-  // Dispositivos sem sala (para exibir na lista)
-  const devicesWithoutRoom = filteredDevices.filter(device => !device.room_id);
+  const devicesWithoutRoom = filteredDevices.filter((device: Device) => !getDeviceRoom(device));
 
-  const handleDeviceDrag = async (device: Device, newX: number, newY: number): Promise<void> => {
-    const updatedDevices = mapData.devices.map(d => 
-      d.id === device.id ? { ...d, x: newX, y: newY } : d
+  const handleDeviceDrag = async (device: Device, newX: number, newY: number) => {
+    const room = getDeviceRoom(device);
+    if (!room) return;
+
+    setDevices(prevDevices => 
+      prevDevices.map((d: Device) => 
+        d.id === device.id ? { ...d, x: newX, y: newY } : d
+      )
     );
-    
-    setMapData(prev => ({
-      ...prev,
-      devices: updatedDevices
-    }));
 
-    try {
-      if (device.room_id && device.id != null) {
+    if (mode === 'move') {
+      try {
         await apiService.updateDevicePosition({
-          device_id: Number(device.id),
-          room_id: Number(device.room_id),
+          device_id: device.id,
+          room_id: room.id,
           x: newX,
           y: newY
         });
+      } catch (error: unknown) {
+        console.error('Erro ao salvar posição do dispositivo:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        showToast("Erro", "Erro ao salvar posição: " + errorMessage, "destructive");
+        
+        setDevices(prevDevices => 
+          prevDevices.map((d: Device) => 
+            d.id === device.id ? { ...d, x: device.x, y: device.y } : d
+          )
+        );
       }
-    } catch (error) {
-      console.error('Erro ao salvar posição do dispositivo:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      showToast("Erro", "Erro ao salvar posição: " + errorMessage, "destructive");
+    } else if (mode === 'edit') {
+      setHasUnsavedChanges(true);
     }
   };
 
-  const handleRoomDrag = async (room: Room, newX: number, newY: number): Promise<void> => {
+// 3. Função handleRoomDrag corrigida
+const handleRoomDrag = async (room: Room, newX: number, newY: number) => {
+  console.log('Movendo sala:', { id: room.id, newX, newY, mode }); // Debug
+  
+  // Atualiza estado local imediatamente
+  setRooms(prevRooms => 
+    prevRooms.map((r: Room) => 
+      r.id === room.id ? { ...r, x: newX, y: newY } : r
+    )
+  );
+
+  if (mode === 'move') {
     try {
-      await apiService.updateRoom(room.id, { x: newX, y: newY });
-      setMapData(prev => ({
-        ...prev,
-        rooms: prev.rooms.map(r => r.id === room.id ? { ...r, x: newX, y: newY } : r)
-      }));
-    } catch (error) {
+      console.log('Salvando posição da sala no modo move...'); // Debug
+      const updatedRoom = await apiService.updateRoom(room.id, { x: newX, y: newY });
+      console.log('Sala salva com sucesso:', updatedRoom); // Debug
+    } catch (error: unknown) {
       console.error('Erro ao mover sala:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       showToast("Erro", "Erro ao mover sala: " + errorMessage, "destructive");
+      
+      // Reverter mudança em caso de erro
+      setRooms(prevRooms => 
+        prevRooms.map((r: Room) => 
+          r.id === room.id ? { ...r, x: room.x, y: room.y } : r
+        )
+      );
     }
+  } else if (mode === 'edit') {
+    setHasUnsavedChanges(true);
+    console.log('Marcando como alteração não salva no modo edit'); // Debug
+  }
+};
+
+// 4. Função handleRoomResize corrigida
+const handleRoomResize = (room: Room, newWidth: number, newHeight: number) => {
+  console.log('Redimensionando sala:', { id: room.id, newWidth, newHeight }); // Debug
+  
+  setRooms(prevRooms => 
+    prevRooms.map((r: Room) => 
+      r.id === room.id ? { ...r, width: newWidth, height: newHeight } : r
+    )
+  );
+  setHasUnsavedChanges(true);
+};
+
+// 5. Função saveAllChanges corrigida
+const saveAllChanges = async () => {
+  setIsSaving(true);
+  let errors: string[] = [];
+  
+  console.log('Salvando todas as alterações...', { rooms, devices }); // Debug
+
+  try {
+    const roomPromises = rooms.map(async (room) => {
+      try {
+        console.log('Salvando sala:', room); // Debug
+        const updatedRoom = await apiService.updateRoom(room.id, {
+          x: room.x,
+          y: room.y,
+          width: room.width,
+          height: room.height
+        });
+        console.log('Sala salva:', updatedRoom); // Debug
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        errors.push(`Erro ao salvar sala ${room.name}: ${errorMessage}`);
+        console.error(`Erro ao salvar sala ${room.name}:`, error);
+      }
+    });
+
+    const devicePromises = devices
+      .filter(device => device.room_id !== null && device.x !== null && device.y !== null)
+      .map(async (device) => {
+        try {
+          await apiService.updateDevicePosition({
+            device_id: device.id,
+            room_id: device.room_id!,
+            x: device.x!,
+            y: device.y!
+          });
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+          errors.push(`Erro ao salvar dispositivo ${device.name || device.ip}: ${errorMessage}`);
+        }
+      });
+
+    await Promise.all([...roomPromises, ...devicePromises]);
+
+    if (errors.length === 0) {
+      setHasUnsavedChanges(false);
+      showToast("Sucesso", "Todas as alterações foram salvas!");
+      console.log('Todas as alterações salvas com sucesso'); // Debug
+    } else {
+      showToast("Aviso", `${errors.length} erro(s) ocorreram ao salvar`, "destructive");
+      console.error('Erros durante salvamento:', errors);
+    }
+
+  } catch (error) {
+    console.error('Erro geral ao salvar:', error);
+    showToast("Erro", "Erro ao salvar alterações", "destructive");
+  } finally {
+    setIsSaving(false);
+  }
+};
+
+  const discardChanges = () => {
+    loadData();
+    setHasUnsavedChanges(false);
+    setMode('view');
   };
+
+  const sectors = [...new Set(devices.map((d: Device) => d.sector).filter(Boolean))];
+  const deviceTypes = [...new Set(devices.map((d: Device) => d.type).filter(Boolean))];
 
   if (isLoading) {
     return (
@@ -225,7 +528,6 @@ export default function NetworkMapViewer() {
             <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
           </div>
           <p className="mt-6 text-lg font-medium text-gray-700 dark:text-gray-300">Carregando dispositivos da rede...</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Aguarde enquanto sincronizamos os dados</p>
         </div>
       </div>
     );
@@ -241,7 +543,7 @@ export default function NetworkMapViewer() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Erro de Conexão</h2>
           <p className="text-red-600 dark:text-red-400 mb-6">{error}</p>
           <button 
-            onClick={loadMapData}
+            onClick={loadData}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Tentar Novamente
@@ -267,27 +569,17 @@ export default function NetworkMapViewer() {
             </div>
           </div>
 
-          <div className="flex space-x-2">
-            <button
-              onClick={loadMapData}
-              className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white border border-white border-opacity-30 rounded-lg transition-all"
-              title="Atualizar dados"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-            <button
-              onClick={savePositions}
-              disabled={isSaving}
-              className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-all disabled:opacity-50"
-              title="Salvar posições"
-            >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            </button>
-          </div>
+          <button
+            onClick={loadData}
+            className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white border border-white border-opacity-30 rounded-lg transition-all"
+            title="Atualizar dados"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             <button
               onClick={() => setMode('view')}
               className={`flex items-center justify-center p-2 rounded-lg transition-all ${
@@ -311,8 +603,19 @@ export default function NetworkMapViewer() {
               Mover
             </button>
             <button
+              onClick={() => setMode('edit')}
+              className={`flex items-center justify-center p-2 rounded-lg transition-all ${
+                mode === 'edit' 
+                  ? 'bg-purple-600 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              <Network className="w-4 h-4 mr-2" />
+              Editar
+            </button>
+            <button
               onClick={() => setShowDeviceLabels(!showDeviceLabels)}
-              className={`flex items-center justify-center p-2 rounded-lg transition-all col-span-2 ${
+              className={`flex items-center justify-center p-2 rounded-lg transition-all col-span-3 ${
                 showDeviceLabels 
                   ? 'bg-blue-600 text-white' 
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
@@ -323,11 +626,38 @@ export default function NetworkMapViewer() {
             </button>
           </div>
 
+          {(mode === 'edit' && hasUnsavedChanges) && (
+            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-yellow-800 dark:text-yellow-200">Alterações não salvas</span>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={discardChanges}
+                    className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
+                    disabled={isSaving}
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    onClick={saveAllChanges}
+                    className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    disabled={isSaving}
+                  >
+                    {isSaving ? 'Salvando...' : 'Salvar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="relative mb-4">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar dispositivos, IPs, usuários..."
+              placeholder="Buscar dispositivos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -335,40 +665,34 @@ export default function NetworkMapViewer() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="relative">
-              <Filter className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-              >
-                <option value="">Todos os tipos</option>
-                {mapData.device_types.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div className="relative">
-              <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-              <select
-                value={filterSector}
-                onChange={(e) => setFilterSector(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-              >
-                <option value="">Todos os setores</option>
-                {mapData.sectors.map(sector => (
-                  <option key={sector} value={sector}>{sector}</option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Todos os tipos</option>
+              {deviceTypes.map((type: string) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+            <select
+              value={filterSector}
+              onChange={(e) => setFilterSector(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Todos os setores</option>
+              {sectors.map((sector: string) => (
+                <option key={sector} value={sector}>{sector}</option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <CollapsibleSection title="Salas" count={mapData.rooms.length}>
+          <CollapsibleSection title="Salas" count={rooms.length}>
             <div className="space-y-3">
-              {mapData.rooms.map(room => {
-                const devicesInRoom = mapData.devices.filter(d => d.room_id === room.id);
+              {rooms.map((room: Room) => {
+                const devicesInRoom = devices.filter((d: Device) => d.sector === room.name);
                 return (
                   <div
                     key={room.id}
@@ -390,7 +714,7 @@ export default function NetworkMapViewer() {
                             <Users className="w-4 h-4" />
                             <span>{devicesInRoom.length} dispositivos</span>
                           </div>
-                          <div>{room.width}x{room.height}px</div>
+                          <div>{room.width || 300}x{room.height || 200}px</div>
                         </div>
                       </div>
                     </div>
@@ -400,11 +724,10 @@ export default function NetworkMapViewer() {
             </div>
           </CollapsibleSection>
 
-          {/* Dispositivos sem sala */}
           {devicesWithoutRoom.length > 0 && (
             <CollapsibleSection title="Dispositivos sem Sala" count={devicesWithoutRoom.length}>
               <div className="space-y-2">
-                {devicesWithoutRoom.map(device => (
+                {devicesWithoutRoom.map((device: Device) => (
                   <div
                     key={device.id}
                     className="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg"
@@ -428,52 +751,6 @@ export default function NetworkMapViewer() {
               </div>
             </CollapsibleSection>
           )}
-
-          <CollapsibleSection title="Dispositivos por Setor" count={filteredDevices.length}>
-            <div className="space-y-4">
-              {mapData.sectors.map(sector => {
-                const devicesInSector = filteredDevices.filter(device => device.sector === sector);
-                
-                if (devicesInSector.length === 0) return null;
-
-                return (
-                  <div key={sector} className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
-                    <div className="px-4 py-3 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-gray-900 dark:text-gray-100">{sector}</span>
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full text-xs font-medium">
-                          {devicesInSector.length}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto bg-white dark:bg-gray-800">
-                      {devicesInSector.map(device => (
-                        <div
-                          key={device.id}
-                          className="flex items-center p-3 border-b border-gray-100 dark:border-gray-700"
-                        >
-                          <div className="flex items-center space-x-3 flex-1">
-                            <div className="flex-shrink-0">
-                              {getDeviceIcon(device.type, device.status)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {device.name || device.ip}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {device.user} • {device.ip}
-                              </p>
-                            </div>
-                            <StatusBadge status={device.status} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CollapsibleSection>
         </div>
       </div>
 
@@ -488,63 +765,72 @@ export default function NetworkMapViewer() {
               radial-gradient(circle at 10px 10px, rgba(139, 92, 246, 0.1) 1px, transparent 0)
             `,
             backgroundSize: '20px 20px, 40px 40px',
-            cursor: mode === 'move' ? 'move' : 'default'
+            cursor: mode === 'move' || mode === 'edit' ? 'move' : 'default'
           }}
         >
-          {mapData.rooms.map(room => (
-            <div
-              key={room.id}
-              className={`absolute border-2 rounded-2xl backdrop-blur-sm transition-all duration-200 ${
-                selectedRoom === room.id
-                  ? 'border-blue-500 bg-white bg-opacity-90 shadow-2xl scale-105'
-                  : 'border-gray-300 bg-white bg-opacity-80 hover:border-blue-400 hover:shadow-xl'
-              } ${mode === 'move' ? 'cursor-move' : 'cursor-pointer'}`}
-              style={{
-                left: room.x,
-                top: room.y,
-                width: room.width,
-                height: room.height
-              }}
-              onMouseDown={(e: React.MouseEvent) => {
-                if (mode !== 'move') return;
-                e.preventDefault();
-                
-                const startX = e.clientX - room.x;
-                const startY = e.clientY - room.y;
-                
-                const handleMouseMove = (e: MouseEvent) => {
-                  const newX = Math.max(0, e.clientX - startX);
-                  const newY = Math.max(0, e.clientY - startY);
-                  handleRoomDrag(room, newX, newY);
-                };
-                
-                const handleMouseUp = () => {
-                  document.removeEventListener('mousemove', handleMouseMove);
-                  document.removeEventListener('mouseup', handleMouseUp);
-                };
-                
-                document.addEventListener('mousemove', handleMouseMove);
-                document.addEventListener('mouseup', handleMouseUp);
-              }}
-            >
-              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-t-2xl">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm truncate">{room.name}</h3>
-                  <div className="flex items-center space-x-1 text-xs">
-                    <Users className="w-3 h-3" />
-                    <span>{mapData.devices.filter(d => d.room_id === room.id).length}</span>
+          {rooms.map((room: Room) => {
+            const devicesInRoom = filteredDevices.filter((device: Device) => device.sector === room.name);
+            return (
+              <div
+                key={room.id}
+                className={`absolute border-2 rounded-2xl backdrop-blur-sm transition-all duration-200 ${
+                  selectedRoom === room.id
+                    ? 'border-blue-500 bg-white bg-opacity-90 shadow-2xl scale-105'
+                    : 'border-gray-300 bg-white bg-opacity-80 hover:border-blue-400 hover:shadow-xl'
+                } ${mode === 'move' || mode === 'edit' ? 'cursor-move' : 'cursor-pointer'}`}
+                style={{
+                  left: room.x || 100,
+                  top: room.y || 100,
+                  width: room.width || 300,
+                  height: room.height || 200
+                }}
+                onMouseDown={(e) => {
+                  if (mode === 'view') {
+                    setSelectedRoom(selectedRoom === room.id ? null : room.id);
+                    return;
+                  }
+                  if (mode !== 'move' && mode !== 'edit') return;
+                  e.preventDefault();
+                  
+                  const rect = mapRef.current?.getBoundingClientRect();
+                  if (!rect) return;
+                  
+                  const startX = e.clientX - rect.left - (room.x || 100);
+                  const startY = e.clientY - rect.top - (room.y || 100);
+                  
+                  const handleMouseMove = (e: MouseEvent) => {
+                    const newX = Math.max(0, e.clientX - rect.left - startX);
+                    const newY = Math.max(0, e.clientY - rect.top - startY);
+                    handleRoomDrag(room, newX, newY);
+                  };
+                  
+                  const handleMouseUp = () => {
+                    document.removeEventListener('mousemove', handleMouseMove);
+                    document.removeEventListener('mouseup', handleMouseUp);
+                  };
+                  
+                  document.addEventListener('mousemove', handleMouseMove);
+                  document.addEventListener('mouseup', handleMouseUp);
+                }}
+              >
+                <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-t-2xl">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm truncate">{room.name}</h3>
+                    <div className="flex items-center space-x-1 text-xs">
+                      <Users className="w-3 h-3" />
+                      <span>{devicesInRoom.length}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="relative p-2" style={{ height: room.height - 50 }}>
-                {mapData.devices
-                  .filter(device => device.room_id === room.id)
-                  .map(device => (
+                
+                <div className="relative p-2" style={{ height: (room.height || 200) - 50 }}>
+                  {devicesInRoom
+                    .filter(device => device.x !== null && device.y !== null)
+                    .map((device: Device) => (
                     <div
                       key={device.id}
                       className={`absolute bg-white dark:bg-gray-800 border-2 border-gray-300 rounded-xl p-3 shadow-lg hover:shadow-2xl transition-all duration-200 transform hover:scale-110 ${
-                        mode === 'move' ? 'cursor-move' : 'cursor-pointer'
+                        mode === 'move' || mode === 'edit' ? 'cursor-move' : 'cursor-pointer'
                       } ${device.status === 1 ? 'border-emerald-300' : 'border-red-300'}`}
                       style={{
                         left: device.x || 50,
@@ -553,20 +839,22 @@ export default function NetworkMapViewer() {
                         minWidth: '48px',
                         minHeight: '48px'
                       }}
-                      onMouseDown={(e: React.MouseEvent) => {
-                        if (mode !== 'move') return;
+                      onMouseDown={(e) => {
+                        if (mode !== 'move' && mode !== 'edit') return;
                         e.stopPropagation();
                         e.preventDefault();
                         
                         const rect = mapRef.current?.getBoundingClientRect();
                         if (!rect) return;
                         
-                        const startX = e.clientX - rect.left - room.x - (device.x || 50);
-                        const startY = e.clientY - rect.top - room.y - (device.y || 50);
+                        const startX = e.clientX - rect.left - (room.x || 100) - (device.x || 50);
+                        const startY = e.clientY - rect.top - (room.y || 100) - (device.y || 50);
                         
                         const handleMouseMove = (e: MouseEvent) => {
-                          const newX = Math.max(25, Math.min(room.width - 25, e.clientX - rect.left - room.x - startX));
-                          const newY = Math.max(60, Math.min(room.height - 25, e.clientY - rect.top - room.y - startY));
+                          const roomWidth = room.width || 300;
+                          const roomHeight = room.height || 200;
+                          const newX = Math.max(25, Math.min(roomWidth - 25, e.clientX - rect.left - (room.x || 100) - startX));
+                          const newY = Math.max(60, Math.min(roomHeight - 25, e.clientY - rect.top - (room.y || 100) - startY));
                           handleDeviceDrag(device, newX, newY);
                         };
                         
@@ -578,7 +866,7 @@ export default function NetworkMapViewer() {
                         document.addEventListener('mousemove', handleMouseMove);
                         document.addEventListener('mouseup', handleMouseUp);
                       }}
-                      title={`${device.name} (${device.ip}) - ${device.user}`}
+                      title={`${device.name || device.ip} - ${device.user}`}
                     >
                       <div className="flex items-center justify-center">
                         {getDeviceIcon(device.type, device.status)}
@@ -592,9 +880,99 @@ export default function NetworkMapViewer() {
                       )}
                     </div>
                   ))}
+                </div>
+
+                {mode === 'edit' && (
+                  <>
+                    <div
+                      className="absolute bottom-0 right-0 w-4 h-4 bg-purple-500 rounded-tl-lg cursor-se-resize opacity-70 hover:opacity-100 transition-opacity"
+                      style={{ transform: 'translate(50%, 50%)' }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        
+                        const rect = mapRef.current?.getBoundingClientRect();
+                        if (!rect) return;
+                        
+                        const startWidth = room.width || 300;
+                        const startHeight = room.height || 200;
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        
+                        const handleMouseMove = (e: MouseEvent) => {
+                          const deltaX = e.clientX - startX;
+                          const deltaY = e.clientY - startY;
+                          const newWidth = Math.max(200, startWidth + deltaX);
+                          const newHeight = Math.max(150, startHeight + deltaY);
+                          handleRoomResize(room, newWidth, newHeight);
+                        };
+                        
+                        const handleMouseUp = () => {
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    />
+
+                    <div
+                      className="absolute top-1/2 right-0 w-2 h-8 bg-purple-500 rounded-l-lg cursor-e-resize opacity-70 hover:opacity-100 transition-opacity"
+                      style={{ transform: 'translate(50%, -50%)' }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        
+                        const startWidth = room.width || 300;
+                        const startX = e.clientX;
+                        
+                        const handleMouseMove = (e: MouseEvent) => {
+                          const deltaX = e.clientX - startX;
+                          const newWidth = Math.max(200, startWidth + deltaX);
+                          handleRoomResize(room, newWidth, room.height || 200);
+                        };
+                        
+                        const handleMouseUp = () => {
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    />
+
+                    <div
+                      className="absolute bottom-0 left-1/2 w-8 h-2 bg-purple-500 rounded-t-lg cursor-s-resize opacity-70 hover:opacity-100 transition-opacity"
+                      style={{ transform: 'translate(-50%, 50%)' }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        
+                        const startHeight = room.height || 200;
+                        const startY = e.clientY;
+                        
+                        const handleMouseMove = (e: MouseEvent) => {
+                          const deltaY = e.clientY - startY;
+                          const newHeight = Math.max(150, startHeight + deltaY);
+                          handleRoomResize(room, room.width || 300, newHeight);
+                        };
+                        
+                        const handleMouseUp = () => {
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    />
+                  </>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         
         <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 backdrop-blur-sm bg-opacity-90">
@@ -603,8 +981,9 @@ export default function NetworkMapViewer() {
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                 <span>
-                  {mode === 'move' && 'Arraste salas e dispositivos para reposicioná-los'}
-                  {mode === 'view' && 'Modo de visualização - clique em "Mover" para reposicionar elementos'}
+                  {mode === 'move' && 'Arraste salas e dispositivos para reposicioná-los (salvo automaticamente)'}
+                  {mode === 'edit' && 'Arraste para mover, redimensione salas e salve as alterações'}
+                  {mode === 'view' && 'Modo de visualização - selecione "Mover" ou "Editar" para modificar elementos'}
                 </span>
               </div>
             </div>
@@ -613,28 +992,21 @@ export default function NetworkMapViewer() {
               <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center space-x-1">
                   <Building className="w-4 h-4" />
-                  <span>{mapData.rooms.length} salas</span>
+                  <span>{rooms.length} salas</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Network className="w-4 h-4" />
-                  <span>{mapData.devices.length} dispositivos</span>
+                  <span>{devices.length} dispositivos</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                  <span>{mapData.devices.filter(d => d.status === 1).length} online</span>
+                  <span>{devices.filter((d: Device) => d.status === 1).length} online</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <span>{mapData.devices.filter(d => d.status === 0).length} offline</span>
+                  <span>{devices.filter((d: Device) => d.status === 0).length} offline</span>
                 </div>
               </div>
-              
-              {isSaving && (
-                <div className="flex items-center text-emerald-600 dark:text-emerald-400">
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  <span className="text-sm font-medium">Salvando...</span>
-                </div>
-              )}
             </div>
           </div>
         </div>
