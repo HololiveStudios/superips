@@ -157,7 +157,7 @@ const Header = (props: {
 
   return (
     <header className="fixed top-4 left-4 right-4 z-40 h-20 animate-slide-down">
-      <div className="h-full rounded-3xl backdrop-blur-md bg-gradient-to-r from-white/70 to-white/40 dark:from-gray-800/70 dark:to-gray-800/50 shadow-xl ring-1 ring-white/30 dark:ring-black/20 flex items-center px-4 lg:px-6 transform transition-all duration-500 hover:shadow-2xl hover:scale-[1.02]">
+      <div className="h-full rounded-3xl backdrop-blur-md bg-white/70 dark:bg-gray-800/70 shadow-xl flex items-center px-4 lg:px-6 transform transition-all duration-500 hover:shadow-2xl hover:scale-[1.02]">
         <div className="flex items-center gap-2 lg:gap-4 min-w-0 flex-1">
           <MobileMenuButton isOpen={isMobileMenuOpen} onClick={onMobileMenuToggle} />
           <div className="hidden lg:block">
@@ -177,8 +177,8 @@ const Header = (props: {
 }
 
 const MainContent = ({ children }: { children?: React.ReactNode }) => (
-  <main className="pt-24 px-4 lg:px-6 min-h-screen lg:ml-80 rounded-3xl">
-    <div className="p-4 lg:p-6 h-full overflow-auto">
+  <main className="pt-24 min-h-screen px-2 lg:ml-80 rounded-3xl">
+    <div className="pt-4 h-full overflow-auto">
       {children}
     </div>
   </main>

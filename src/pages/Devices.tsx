@@ -3,7 +3,7 @@ import { useDevicesStore } from '../store/devices';
 import { 
   Activity, Power, Search, ChevronDown, ChevronUp, 
   ArrowRight, ArrowLeft, Edit2, Loader2, Filter,
-  WifiOff, Check
+  WifiOff, Check, Settings, Network
 } from 'lucide-react';
 import type { Device } from '../types';
 import { apiService } from '../services/api';
@@ -468,18 +468,6 @@ let list = viewMode === 'free'
     </span>
   );
 
-    const getDeviceCountText = () => {
-  if (viewMode === 'free') {
-    const freeCount = availableIPs.length;
-    return `${freeCount} IP${freeCount !== 1 ? 's' : ''} livre${freeCount !== 1 ? 's' : ''}`;
-  } else {
-    const totalCount = getDevicesByNetwork(currentNetwork).length;
-    const freeCount = availableIPs.length;
-    return `${totalCount} dispositivos (${freeCount} livres)`;
-  }
-
-  };
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -500,69 +488,77 @@ let list = viewMode === 'free'
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Dispositivos
-          </h1>
-          <div className="relative w-full md:w-96 mt-4 md:mt-0">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+    <div className="space-y-2">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
+          {/* Título e Configurações */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+            <div className="flex items-center space-x-3 mb-4 sm:mb-0">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <Network className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Dispositivos de Rede
+              </h1>
             </div>
-            <input
-              type="text"
-              placeholder="Buscar dispositivos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-2xl shadow-sm dark:shadow-gray-500/30 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800 dark:text-white"
-            />
+            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+              <Settings className="w-4 h-4" />
+              <span className="text-sm font-medium">Configurações</span>
+            </button>
           </div>
-        </div>
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
-          <div className="flex flex-wrap items-center gap-4">
+          {/* Controles de Rede e Filtros */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             {/* Seletor de Subrede */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Subrede: {currentNetwork}.x
-              </span>
-              <div className="flex items-center space-x-1">
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+              <div className="flex items-center space-x-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Subrede Atual:
+                </span>
+                <span className="text-lg font-mono font-bold text-blue-600 dark:text-blue-400">
+                  {currentNetwork}.x
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => switchNetwork('prev')}
-                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  className="p-2 bg-white dark:bg-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors shadow-sm"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
                 <button
                   onClick={() => switchNetwork('next')}
-                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  className="p-2 bg-white dark:bg-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors shadow-sm"
                 >
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 text-gray-600 dark:text-gray-300" />
                 </button>
               </div>
             </div>
 
             {/* Filtros de Visualização */}
-            <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+              <div className="flex items-center space-x-2">
+                <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Visualização:
+                </span>
+              </div>
+              <div className="flex bg-white dark:bg-gray-600 rounded-lg p-1 shadow-sm">
                 <button
                   onClick={() => setViewMode('all')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors duration-150 ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
                     viewMode === 'all'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
                   }`}
                 >
                   Todos
                 </button>
                 <button
                   onClick={() => setViewMode('free')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors duration-150 flex items-center space-x-1 ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 flex items-center space-x-1 ${
                     viewMode === 'free'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                      ? 'bg-blue-500 text-white shadow-md'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
                   }`}
                 >
                   <WifiOff className="w-3 h-3" />
@@ -572,13 +568,20 @@ let list = viewMode === 'free'
             </div>
           </div>
 
-          {/* Contador de dispositivos */}
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {getDeviceCountText()}
+          {/* Barra de Busca */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar dispositivos, IPs ou setores..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400 text-sm"
+            />
           </div>
         </div>
-      </div>
-
       {filteredDevices.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-500/30 p-8 text-center">
           <div className="text-gray-500 dark:text-gray-400">
