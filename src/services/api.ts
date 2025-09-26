@@ -25,7 +25,7 @@ import type {
 } from '@/types';
 
 const api: AxiosInstance = axios.create({
-  baseURL: 'http://10.0.11.150:5173/api',
+  baseURL: import.meta.env.VITE_API_URL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -55,7 +55,7 @@ class ApiService {
     const response = await api.put(`/devices/${id}`, device);
     return response.data;
   }
-
+  
   async deleteDevice(id: number) {
     const response = await api.delete(`/devices/${id}`);
     return response.data;

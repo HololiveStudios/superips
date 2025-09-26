@@ -54,7 +54,7 @@ const NavLink: React.FC<ExtendedNavLinkProps> = ({ item, mobile = false, onClick
       style={{ 
         animationDelay: mobile ? `${index * 100}ms` : '0ms' 
       }}
-      className={`group w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-500 transform hover:scale-105
+      className={`group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl transition-all duration-500 transform mx-2 hover:scale-105
         ${mobile ? 'animate-slide-down opacity-0 [animation-fill-mode:forwards]' : 'animate-fade-in'}
         ${
           isActive
@@ -177,8 +177,8 @@ const Header = (props: {
 }
 
 const MainContent = ({ children }: { children?: React.ReactNode }) => (
-  <main className="pt-24 min-h-screen px-2 lg:ml-80 rounded-3xl">
-    <div className="pt-4 h-full overflow-auto">
+  <main className="pt-24 pb-4 min-h-screen px-2 lg:ml-80 rounded-2xl">
+    <div className="pt-4 pb-1 h-full overflow-auto rounded-2xl">
       {children}
     </div>
   </main>

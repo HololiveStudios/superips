@@ -11,13 +11,10 @@ import {
   Wifi,
   WifiOff
 } from 'lucide-react';
-import axios from 'axios';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { useToast } from '../hooks/use-toast';
-
-// URL base da API
-const API_BASE_URL = `${import.meta.env.VITE_SERVER}:${import.meta.env.VITE_PORT}`;
+import { apiService } from '@/services/api'; // Usando sua API existente
 
 // Tipos para as notificações
 type Notification = {
@@ -290,21 +287,11 @@ const NotificationsPopover = ({
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [devicesRes, printersRes] = await Promise.all([
-          axios.get(`${API_BASE_URL}/api/devices`, {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }),
-          axios.get(`${API_BASE_URL}/api/printers`, {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          })
+        // Usando sua API existente
+        const [currentDevices, currentPrinters] = await Promise.all([
+          apiService.getDevices(),
+          apiService.getPrinters()
         ]);
-
-        const currentDevices = devicesRes.data;
-        const currentPrinters = printersRes.data;
 
         // Gerar notificações apenas para mudanças de status
         const statusNotifications = generateStatusNotifications(
@@ -333,6 +320,11 @@ const NotificationsPopover = ({
 
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
+        toast({
+          title: "Erro",
+          description: "Erro ao carregar dados dos dispositivos",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }

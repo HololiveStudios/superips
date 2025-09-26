@@ -1,0 +1,22 @@
+{
+  "name": "superips-backend",
+  "version": "1.0.0",
+"scripts": {
+  "dev": "bun --watch src/index.ts",
+  "start": "bun src/index.ts",
+  "build": "bun build src/index.ts --outdir ./dist --target bun"
+},
+  "dependencies": {
+    "@elysiajs/cors": "^1.4.0",
+    "@elysiajs/static": "^1.4.0",
+    "drizzle-orm": "^0.29.3",
+    "elysia": "^1.4.7",
+    "postgres": "^3.4.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "bun-types": "latest",
+    "drizzle-kit": "^0.20.8"
+  }
+}

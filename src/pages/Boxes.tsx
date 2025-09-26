@@ -3,7 +3,7 @@ import { Monitor, CheckCircle2, Clock, Edit } from 'lucide-react';
 import { Switch } from '../components/ui/switch';
 import type { Box } from '../types';
 import EditBoxModal from '../components/EditBoxModal';
-
+import {apiService} from '../services/api';
 export default function Boxes() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,28 +27,24 @@ export default function Boxes() {
       return out;
     };
 
-    const fetchBoxes = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_SERVER}:${import.meta.env.VITE_PORT}/api/boxes`, {
-          headers: { 'Content-Type': 'application/json' },
-        });
+const fetchBoxes = async () => {
+  setIsLoading(true);
+  try {
+    const data: Box[] = await apiService.getBoxes();
+    const sanitizedData = sanitizeBoxes(data.map(box => ({
+      ...box,
+      power_status: Number(box.power_status) as 0 | 1,
+      status: Number(box.status) as 0 | 1
+    })));
+    setBoxes(Array.isArray(data) ? sanitizedData : []);
+  } catch (err) {
+    console.error('Failed to fetch boxes:', err);
+    setError(err instanceof Error ? err.message : 'An unknown error occurred');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-        if (!response.ok) throw new Error('Failed to fetch boxes');
-
-        const data: Box[] = await response.json();
-        const sanitizedData = sanitizeBoxes(data.map(box => ({
-          ...box,
-          power_status: Number(box.power_status) as 0 | 1,
-          status: Number(box.status) as 0 | 1
-        })));
-        setBoxes(Array.isArray(data) ? sanitizedData : []);
-      } catch (err) {
-        console.error('Failed to fetch boxes:', err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setIsLoading(false);
-      }
-    };
 
     fetchBoxes();
     const interval = setInterval(fetchBoxes, 5000);
