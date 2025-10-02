@@ -44,7 +44,7 @@ export default function ExportDevicesPage() {
   };
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center justify-center ">
       <div className="shadow-lg rounded-2xl p-6 text-center dark:bg-gray-800">
         <h1 className="text-2xl font-semibold mb-4">
           Exportação de Dispositivos

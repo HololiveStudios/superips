@@ -6,11 +6,11 @@
   "version": "7.2.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:backend\"",
     "dev:frontend": "vite",
-    "dev:backend": "nodemon server/index.js",
+    "dev:backend": "bun --watch backend/src/index.ts",
+    "dev": "bun run dev:frontend & bun run dev:backend",
     "build": "vite build",
-    "server": "nodemon server/index.js",
+    "server": "bun run ts-node-dev server/src/index.ts",
     "start": "run-s build serve"
   },
   "dependencies": {
@@ -28,11 +28,13 @@
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "bonjour": "^3.5.0",
+    "bun": "^1.2.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "framer-motion": "^12.23.22",
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.344.0",

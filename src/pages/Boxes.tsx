@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Monitor, CheckCircle2, Clock, Edit } from 'lucide-react';
 import { Switch } from '../components/ui/switch';
 import type { Box } from '../types';
-import EditBoxModal from '../components/EditBoxModal';
+import EditBoxModal from '../components/modals/EditBoxModal';
 import {apiService} from '../services/api';
 export default function Boxes() {
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -155,9 +155,9 @@ const fetchBoxes = async () => {
   }
 
   return (
-    <div>
+    <div className='p-4 sm:p-6 mx-auto'>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Caixas</h1>
+        <h1 className="text-3xl font-bold">Caixas</h1>
         <div className="flex gap-4 mt-2">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-green-100 dark:bg-green-800 rounded-full"></div>

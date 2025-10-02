@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { Router } from '../types';
-import { apiService } from '../services/api';
+import type { Router } from '../../types';
+import { apiService } from '../../services/api';
 
 interface EditRouterModalProps {
   router: Router;

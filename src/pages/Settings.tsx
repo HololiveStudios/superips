@@ -252,11 +252,11 @@ const handleImportDevices = async (ev: React.ChangeEvent<HTMLInputElement>) => {
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="p-4 sm:p-6 mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold">
             Configurações
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">

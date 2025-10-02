@@ -7,7 +7,5 @@ node_modules/
 # Ignorar banco de dados local
 local.db
 
-# Ignorar pasta de dados
-data/
-
 dist/
+

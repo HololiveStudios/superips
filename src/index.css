@@ -61,55 +61,6 @@
   }
 }
 
-.clip-path-diagonal {
-  clip-path: polygon(0 0, 100% 0, 0 100%);
-}
-
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-800;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-500;
-}
-
-/* Smooth transitions */
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
-}
-
-/* Glass effect */
-.glass {
-  @apply bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-700/50;
-}
-
-/* Gradient text */
-.gradient-text {
-  @apply bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent;
-}
-
-/* Custom animations */
 @keyframes fadeInUp {
   from {
     opacity: 0;

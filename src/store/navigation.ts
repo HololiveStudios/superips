@@ -10,6 +10,7 @@ export type Page =
   | 'settings'
   | 'switches'
   | 'sheet'
+  | 'scales'
   | 'room';
 
 interface NavigationState {
@@ -18,6 +19,9 @@ interface NavigationState {
 }
 
 export const useNavigationStore = create<NavigationState>((set) => ({
-  currentPage: 'dashboard',
-  setPage: (page) => set({ currentPage: page }),
+  currentPage: (localStorage.getItem('currentPage') as Page) || 'dashboard',
+  setPage: (page: Page) => {
+    localStorage.setItem('currentPage', page);
+    set({ currentPage: page });
+  },
 }));

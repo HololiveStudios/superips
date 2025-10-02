@@ -321,9 +321,9 @@ export default function SwitchRackManager() {
   }
 
   return (
-    <div className="">
+    <div className="p-4 sm:p-6 mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Switches e Racks</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Switches e Racks</h1>
         
         {error && (
           <div className="mb-4 p-4 bg-red-100 dark:bg-red-800/20 border border-red-400 text-red-700 dark:text-red-400 rounded-lg flex items-center gap-2">

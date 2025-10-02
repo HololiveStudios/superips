@@ -807,7 +807,7 @@ export default function NetworkMapViewer() {
   }
 
   return (
-    <div className="rounded-tl-2xl rounded-tr-2xl flex flex-col dark:from-gray-900 dark:to-blue-900 h-screen overflow-hidden select-none  h-[calc(92vh-4rem)]">
+    <div className=" p-4 sm:p-6 mx-auto rounded-tl-2xl rounded-tr-2xl flex flex-col dark:from-gray-900 dark:to-blue-900 h-screen overflow-hidden select-none  h-[calc(92vh-4rem)]">
 
     <header className="rounded-tl-2xl rounded-tr-2xl relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-2xl">
       <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 dark:from-blue-400/5 dark:via-indigo-400/5 dark:to-purple-400/5"></div>
@@ -826,7 +826,7 @@ export default function NetworkMapViewer() {
             </div>
             
             <div className="hidden sm:block">
-              <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold">
                 Mapa de Rede
               </h1>
             </div>

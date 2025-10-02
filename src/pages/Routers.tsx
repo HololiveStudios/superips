@@ -12,7 +12,7 @@ import {
   Edit2
 } from 'lucide-react';
 import { QRCode } from 'react-qrcode-logo';
-import EditRouterModal from '../components/EditRouterModal';
+import EditRouterModal from '../components/modals/EditRouterModal';
 import { apiService } from '../services/api';
 
 export default function Routers() {
@@ -110,9 +110,9 @@ export default function Routers() {
   const safeRouters = Array.isArray(routers) ? routers : [];
 
   return (
-    <div>
+    <div className='p-4 sm:p-6 mx-auto'>
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Roteadores</h1>
+        <h1 className="text-3xl font-bold">Roteadores</h1>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

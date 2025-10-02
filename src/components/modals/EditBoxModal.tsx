@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Save, X, Monitor } from "lucide-react";
-import type { Box } from "../types";
-import { apiService } from "../services/api";
+import type { Box } from "../../types";
+import { apiService } from "../../services/api";
 
 interface EditBoxModalProps {
   box: Box;

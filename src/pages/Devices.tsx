@@ -488,7 +488,7 @@ let list = viewMode === 'free'
   }
 
   return (
-    <div className="space-y-2">
+    <div className="p-4 sm:p-6 mx-auto">
       <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-lg p-6 mb-6 border border-gray-200 dark:border-gray-700">
           {/* Título e Configurações */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
@@ -496,8 +496,8 @@ let list = viewMode === 'free'
               <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
                 <Network className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Dispositivos de Rede
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Dispositivos
               </h1>
             </div>
             <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">

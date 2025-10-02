@@ -15,9 +15,24 @@ export interface Device {
   created_at?: string;
   updated_at?: string;
   room_id?: number | null;
-  x?: number | null;       // ✅ Permitir null do banco
+  x?: number | null; 
   y?: number | null; 
   [key: string]: any;
+}
+
+export interface DailyTask {
+  id: number;
+  title: string;
+  description: string;
+  time: string;
+  days: string[];
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  completed_today: boolean;
+  notification_enabled: boolean;
+  notification_minutes_before: number;
+  last_completed: string | null;
+  created_at: string;
 }
 
 export interface Router extends Device {
@@ -28,20 +43,90 @@ export interface Router extends Device {
   hidden: number;
 }
 
-export interface Printer extends Device {
-  device_id: number;
-  model: string;
-  npat: number;
-  status: DeviceStatus;
+export interface Printer {
+  id: number;
   name: string;
   ip: string;
   online: 0 | 1;
-  sector: string;
-  user: string;
-  leitura_inicial: string;
-  leitura_final: string;
+  status: 0 | 1;
+  sector?: string;
+  model?: string;
+  user?: string;
+  npat?: string;
+  li?: number | null;
+  lf?: number | null;
+  rental_type: 'Propria' | 'ArtCores' | 'Mundial';
+  created_at?: string;
+  updated_at?: string;
 }
 
+export interface CostSettings {
+  monthlyRental: number;
+  includedPages: number;
+  excessCostPerPage: number;
+}
+
+export interface Scale {
+  id: number;
+  name: string;
+  ip: string | null;
+  type: string;
+  online: 0 | 1;
+  status: 0 | 1;
+  sector: string | null;
+  model: string | null;
+  user: string | null;
+  npat: string | null;
+  defect_reason: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RentalType {
+  id: string;
+  name: string;
+  color: string;
+  description: string;
+  monthlyRental: number;
+  includedPages: number;
+  excessCostPerPage: number;
+}
+
+export interface PrinterCosts {
+  pagesUsed: number;
+  includedPages: number;
+  excessPages: number;
+  monthlyRental: number;
+  excessCost: number;
+  totalCost: number;
+}
+
+export interface RentalTypeTotals {
+  count: number;
+  totalPagesUsed: number;
+  totalIncludedPages: number;
+  totalExcessPages: number;
+  totalRentalFees: number;
+  totalExcessCost: number;
+  totalCost: number;
+}
+
+export interface CostSettings {
+  monthlyRental: number;
+  includedPages: number;
+  excessCostPerPage: number;
+}
+
+export interface RentalTypeSettings {
+  [key: string]: CostSettings;
+}
+
+export interface ExportData {
+  printers: Printer[];
+  settings: RentalTypeSettings;
+  rentalType?: string;
+  totals: RentalTypeTotals;
+}
 export interface Box extends Device {
   power_status: 0 | 1;
   device_id: number;

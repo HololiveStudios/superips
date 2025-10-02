@@ -21,7 +21,9 @@ import type {
   Printer,
   Box,
   Room,
-  DevicePosition
+  DevicePosition,
+  Scale,
+  DailyTask
 } from '@/types';
 
 const api: AxiosInstance = axios.create({
@@ -71,15 +73,142 @@ class ApiService {
     return response.data;
   }
 
-  async getPrinters() {
-    const response = await api.get('/printers');
-    return response.data;
-  }
+  async getDailyTasks(): Promise<DailyTask[]> {
+  const response = await api.get('/daily-tasks');
+  return response.data;
+}
 
-  async updatePrinter(id: number, printerData: Partial<Printer>): Promise<Printer> {
-    const response = await api.put(`/printers/${id}`, printerData);
-    return response.data;
-  }
+async createDailyTask(taskData: {
+  title: string;
+  description: string;
+  time: string;
+  days: string[];
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  notification_enabled: boolean;
+  notification_minutes_before: number;
+}): Promise<DailyTask> {
+  const response = await api.post('/daily-tasks', taskData);
+  return response.data;
+}
+
+async updateDailyTask(id: number, taskData: Partial<{
+  title: string;
+  description: string;
+  time: string;
+  days: string[];
+  category: string;
+  priority: 'low' | 'medium' | 'high';
+  notification_enabled: boolean;
+  notification_minutes_before: number;
+}>): Promise<DailyTask> {
+  const response = await api.put(`/daily-tasks/${id}`, taskData);
+  return response.data;
+}
+
+async deleteDailyTask(id: number): Promise<{ message: string }> {
+  const response = await api.delete(`/daily-tasks/${id}`);
+  return response.data;
+}
+
+async toggleDailyTaskCompletion(id: number): Promise<DailyTask> {
+  const response = await api.post(`/daily-tasks/${id}/toggle`);
+  return response.data;
+}
+
+async getDailyTasksByDay(day: string): Promise<DailyTask[]> {
+  const response = await api.get(`/daily-tasks/day/${day}`);
+  return response.data;
+}
+
+async resetDailyTasksCompletion(): Promise<{ success: boolean; reset_count: number }> {
+  const response = await api.post('/daily-tasks/reset-completion');
+  return response.data;
+}
+
+async getScales(): Promise<Scale[]> {
+  const response = await api.get('/scales');
+  return response.data;
+}
+
+async swapScale(swapData: {
+  currentScaleId: number;
+  replacementScaleId: number;
+  isCurrentReserve: boolean;
+  swapReason: string;
+  swapDate: string;
+}): Promise<{ currentScale: Scale; replacementScale: Scale }> {
+  const response = await api.post('/scales/swap', swapData);
+  return response.data;
+}
+
+async updateScale(id: number, scaleData: Partial<Scale>): Promise<Scale> {
+  const response = await api.put(`/scales/${id}`, scaleData);
+  return response.data;
+}
+
+async createReserveScale(scaleData: any): Promise<Scale> {
+  const response = await api.post('/scales/reserve', scaleData);
+  return response.data;
+}
+
+async updateScaleStatus(id: number, online: 0 | 1): Promise<Scale> {
+  const response = await api.post(`/scales/${id}/online`, { online });
+  return response.data;
+}
+
+async updateScaleDefect(id: number, defect_reason: string | null): Promise<Scale> {
+  const response = await api.patch(`/scales/${id}/defect`, { defect_reason });
+  return response.data;
+}
+
+async getScaleStats() {
+  const response = await api.get('/scales/stats');
+  return response.data;
+}
+
+async getPrinters() {
+  const response = await api.get('/printers');
+  return response.data;
+}
+
+async swapPrinter(swapData: {
+  currentPrinterId: number;
+  replacementPrinterId: number;
+  currentPrinterReading: number;
+  newFinalReading?: number;
+  isCurrentReserve: boolean;
+  swapReason: string;
+  swapDate: string;
+}): Promise<{ currentPrinter: Printer; replacementPrinter: Printer }> {
+  const response = await api.post('/printers/swap', swapData);
+  return response.data;
+}
+
+async updatePrinter(id: number, printerData: Partial<Printer>): Promise<Printer> {
+  const response = await api.put(`/printers/${id}`, printerData);
+  return response.data;
+}
+
+async createReservePrinter(printerData: any): Promise<Printer> {
+  const response = await api.post('/printers/reserve', printerData);
+  return response.data;
+}
+
+async updatePrinterOnlineStatus(id: number, online: 0 | 1): Promise<Printer> {
+  const response = await api.post(`/printers/${id}/online`, { online });
+  return response.data;
+}
+
+async getRentalSettings() {
+  const response = await api.get('/printers/rental-settings');
+  return response.data;
+}
+
+async updateRentalSettings(settings: any) {
+  const response = await api.put('/printers/rental-settings', settings);
+  return response.data;
+}
   
   async getBoxes() {
     const response = await api.get('/boxes');
@@ -468,6 +597,13 @@ export const {
   createTask,
   updateTask,
   deleteTask,
+  getDailyTasks,
+  createDailyTask,
+  updateDailyTask,
+  deleteDailyTask,
+  toggleDailyTaskCompletion,
+  getDailyTasksByDay,
+  resetDailyTasksCompletion,
   setupMonitoringTables,
   discoverNetworkDevices,
   getNetworkDevices,
@@ -505,5 +641,17 @@ export const {
   isValidMAC,
   formatResponseTime,
   formatLastSeen,
-  formatBytes
+  formatBytes,
+  createReservePrinter,
+  updatePrinterOnlineStatus,
+  getRentalSettings,
+  updateRentalSettings,
+  swapPrinter,
+  getScales,
+  swapScale,
+  updateScale,
+  createReserveScale,
+  updateScaleStatus,
+  updateScaleDefect,
+  getScaleStats,
 } = apiService;

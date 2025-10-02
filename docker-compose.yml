@@ -13,13 +13,7 @@ services:
       DB_NAME: superips_db
       JWT_SECRET: TI
       JWT_REFRESH_SECRET: TI_REFRESH
-    ports:
-      - "5173:5173"
-    networks:
-      - superips_network
     restart: unless-stopped
-    command: sh -c "./wait-for-postgres.sh 10.0.11.150 node server/index.js"
+    network_mode: host
+    command: sh -c "./wait-for-postgres.sh 10.0.11.150 5432 bun run backend/dist/index.js"
 
-networks:
-  superips_network:
-    driver: bridge

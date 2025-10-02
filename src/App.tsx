@@ -14,6 +14,7 @@ import { Toaster } from './components/ui/toaster';
 import Layout from './components/Layout';
 import SwitchRackManager from './pages/SwitchRackManager';
 import Room from './pages/Room';
+import Scales from './pages/Scales';
 
 function App() {
   const currentPage = useNavigationStore((state) => state.currentPage);
@@ -30,6 +31,7 @@ function App() {
     case 'settings': PageComponent = Settings; break;
     case 'sheet': PageComponent = Print; break;
     case 'room': PageComponent = Room; break;
+    case 'scales': PageComponent = Scales; break;
     default: PageComponent = Dashboard;
   }
 

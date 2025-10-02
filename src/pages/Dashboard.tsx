@@ -295,11 +295,11 @@ const Dashboard = () => {
   const notifications = getNotifications();
 
   return (
-    <div>
+    <div className='p-4 sm:p-6 mx-auto'>
       <div>
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Dashboard de Monitoramento</h1>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
           </div>
           <div className="flex gap-3">
             <button 
